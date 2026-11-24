@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Orbit</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/orbit-16.png" />
+    <link rel="icon" type="image/png" sizes="24x24" href="/icons/orbit-24.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/orbit-32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/orbit-48.png" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/icons/orbit-256.png" />
+    <link rel="apple-touch-icon" href="/icons/orbit-256.png" />
+    <meta name="color-scheme" content="dark light" />
+    <style id="theme-light">@media (prefers-color-scheme: light){:root:not([data-theme='dark']){--bg:#F7F8FA;--surface:#FFFFFF;--raised:#EEF0F3;--bg2:#F7F8FA;--bg3:#EEF0F3;--hover:#EAEDF1;--line:#DADDE3;--line-strong:#BCC1CA;--control-edge:#858A93;--text:#16181D;--label:#3D424B;--muted:#5B616C;--faint:#5F6570;--grey:#7A808A;--accent:#2F5FC4;--on-accent:#FFFFFF;--amber:#D9560A;--green:#0E8F5A;--coral:#C94A4A;--dim:#858B95;--tint-violet:#6B38F0;--tint-pink:#D6177F;--tint-red:#D42020;--tint-teal:#00877A;--tint-lime:#4A8500;--tint-sand:#9C6A00;--tint-slate:#3F64A8;color-scheme:light}}:root[data-theme='light']{--bg:#F7F8FA;--surface:#FFFFFF;--raised:#EEF0F3;--bg2:#F7F8FA;--bg3:#EEF0F3;--hover:#EAEDF1;--line:#DADDE3;--line-strong:#BCC1CA;--control-edge:#858A93;--text:#16181D;--label:#3D424B;--muted:#5B616C;--faint:#5F6570;--grey:#7A808A;--accent:#2F5FC4;--on-accent:#FFFFFF;--amber:#D9560A;--green:#0E8F5A;--coral:#C94A4A;--dim:#858B95;--tint-violet:#6B38F0;--tint-pink:#D6177F;--tint-red:#D42020;--tint-teal:#00877A;--tint-lime:#4A8500;--tint-sand:#9C6A00;--tint-slate:#3F64A8;color-scheme:light}</style>
+    <script src="/inbox/theme.js"></script>
+    <link rel="stylesheet" href="/inbox/base.css" />
+    <link rel="stylesheet" href="/inbox/constellation.css" />
+    <link rel="stylesheet" href="/inbox/reading.css" />
+    <link rel="stylesheet" href="/inbox/sheets.css" />
+    <script type="module" src="/inbox/main.js"></script>
+  </head>
+  <body>
+    <header class="cx-bar">
+      <div class="cx-brand"><span class="cx-mark" aria-hidden="true"></span><span class="cx-title">Orbit</span></div>
+      <div id="cx-counts" class="cx-counts"></div>
+      <div class="cx-controls">
+        <span class="cx-search"><input id="cx-search" type="search" placeholder="Search" aria-label="Search sessions (/)" aria-describedby="cx-search-count" autocomplete="off" spellcheck="false" /><span id="cx-search-count" class="cx-muted" aria-live="polite"></span></span>
+        <select id="cx-time" aria-label="Time window" title="Time window: by last activity. Active now: running or waiting on you."></select>
+        <button id="cx-filters-open" type="button" aria-label="Filters" title="Filters"></button>
+        <div class="cx-seg" role="group" aria-label="View">
+          <button id="cx-view-map" type="button" class="is-active" aria-pressed="true" aria-label="Map" title="Map (g)"></button>
+          <button id="cx-view-convo" type="button" aria-pressed="false" aria-label="Conversation" title="Conversation (l)"></button>
+        </div>
+        <button id="cx-new-open" type="button" aria-label="New session" aria-keyshortcuts="c" title="New session (c)"></button>
+        <button id="cx-settings-open" type="button" aria-label="Settings" title="Settings"></button>
+      </div>
+    </header>
+    <div id="cx-alert" class="cx-alert" role="alert" hidden></div>
+    <div id="cx-shell" class="cx-alert cx-shell" hidden></div>
+    <div class="cx-body">
+      <nav id="cx-rail" class="cx-rail" aria-label="Sessions by what they need"></nav>
+      <div class="cx-map">
+        <main id="cx-stage" class="cx-stage" tabindex="0" aria-label="Session map"></main>
+        <section id="cx-convo" class="cx-convo" tabindex="-1" aria-label="Conversation" hidden></section>
+        <div id="cx-minimap" class="cx-minimap" role="img" aria-label="Overview of the whole map; click to move the view there" hidden></div>
+        <div id="cx-card" class="cx-card" role="group" aria-label="Session" hidden></div>
+        <div id="cx-toast" class="cx-toast" role="status" hidden></div>
+        <div id="cx-notice" class="cx-notice" role="status" aria-live="polite" hidden></div>
+        <details id="cx-legend" class="cx-legend"><summary>Legend</summary><div id="cx-legend-items" class="cx-legend-items"></div></details>
+        <div class="cx-camera" role="group" aria-label="Map camera">
+          <button id="cx-zoom-in" type="button" aria-label="Zoom in" title="Zoom in (+)"></button>
+          <button id="cx-zoom-out" type="button" aria-label="Zoom out" title="Zoom out (-)"></button>
+          <button id="cx-fit" type="button" aria-label="Fit all sessions" title="Fit all sessions (0)"></button>
+          <button id="cx-reposition" type="button" aria-label="Reposition the map" title="Reposition: lay every node out again and fit"></button>
+        </div>
+      </div>
+      <aside id="cx-panel" class="cx-panel" aria-labelledby="cx-panel-title" hidden></aside>
+      <div id="cx-rail-grip" class="cx-grip cx-grip-rail" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Sessions list width" title="Drag or use ← → to resize · double-click to reset"></div>
+      <div id="cx-panel-grip" class="cx-grip cx-grip-panel" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Session panel width" title="Drag or use ← → to resize · double-click to reset"></div>
+    </div>
+    <footer class="cx-status">
+      <span id="cx-live" class="cx-live"></span>
+      <span id="cx-updated" class="cx-updated"></span>
+      <button id="cx-limits" type="button" class="cx-limits" hidden></button>
+      <span id="cx-version" class="cx-version"></span>
+    </footer>
+    <div id="cx-live-region" class="sr-only" aria-live="polite"></div>
+    <div id="cx-send-live" class="sr-only" role="status"></div>
+    <div id="cx-send-alert" class="sr-only" role="alert"></div>
+    <dialog id="cx-settings" class="cx-sheet" aria-labelledby="cx-settings-title"></dialog>
+    <dialog id="cx-new" class="cx-modal" aria-labelledby="cx-new-title"></dialog>
+    <dialog id="cx-palette" class="cx-palette" aria-label="Go to a session or run an action"></dialog>
+  </body>
+</html>

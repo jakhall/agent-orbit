@@ -1,0 +1,13 @@
+{
+  "name": "agent-orbit",
+  "owner": {
+    "name": "Jak Hall"
+  },
+  "plugins": [
+    {
+      "name": "orbit",
+      "source": "./",
+      "description": "Orbit: live status of every local Claude Code session and its subagents, grouped by project, with one-click Open Session, new sessions, and a pop-out window (Windows, Claude desktop)"
+    }
+  ]
+}

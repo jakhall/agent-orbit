@@ -1,0 +1,180 @@
+.reply-label .icon {
+  margin-top: 2px;
+}
+
+.chat .msg {
+  margin-top: 8px;
+  padding: 0;
+}
+
+.chat .msg.tools,
+.chat .msg.event,
+.chat .msg.tools + .msg:not(.turn),
+.chat .msg.event + .msg:not(.turn) {
+  margin-top: 4px;
+}
+
+.chat .msg.turn {
+  margin-top: 16px;
+}
+
+.chat .msg.question {
+  padding: 8px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-panel);
+  background: var(--surface);
+}
+
+.msg-head .icon.who {
+  margin-right: 4px;
+  vertical-align: -2px;
+  color: var(--muted);
+}
+
+.chat .more-btn {
+  justify-self: start;
+  min-height: 0;
+  margin-top: 2px;
+  padding: 2px 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chat .more-btn:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.chat-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+.chat-day::before,
+.chat-day::after {
+  content: '';
+  flex: 1 1 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.chat .chat-day + .msg {
+  margin-top: 8px;
+}
+
+.chat .chat-rows > .msg:first-child,
+.chat .chat-rows > .chat-day:first-child {
+  margin-top: 0;
+}
+
+.callout.needs .icon {
+  color: var(--muted);
+}
+
+.chat-slot > .callout.needs {
+  margin-top: 8px;
+}
+
+.chat-slot > .callout {
+  margin-bottom: 12px;
+}
+
+.chat-slot > .callout.reply {
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: transparent;
+}
+
+.reply-label .icon.tip-bolt {
+  color: var(--accent);
+}
+
+.md-code-wrap {
+  position: relative;
+}
+
+.md-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+}
+
+.chat .md-copy.icon-btn {
+  background: var(--surface);
+}
+
+.md-code-wrap:hover .md-copy,
+.md-code-wrap:focus-within .md-copy,
+.md-copy.copied {
+  opacity: 1;
+}
+
+.md-copy.copied .icon {
+  color: var(--text);
+}
+
+.md-table {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+}
+
+.md-table:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.md-table table {
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+  line-height: 1.45;
+}
+
+.md-table th,
+.md-table td {
+  min-width: 6ch;
+  padding: 4px 8px;
+  overflow-wrap: break-word;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.md-table th {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.md-table .al-c {
+  text-align: center;
+}
+
+.md-table .al-r {
+  text-align: right;
+}
+
+:is(.cx-panel, .cx-convo) .q-elsewhere .reply-label {
+  align-items: center;
+  gap: 10px;
+}
+
+:is(.cx-panel, .cx-convo) .q-elsewhere .reply-label > span {
+  flex: 1;
+}
+
+:is(.cx-panel, .cx-convo) .q-elsewhere .reply-label button {
+  flex: none;
+}

@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.png binary
+.agents export-ignore
+docs/RELEASE.md export-ignore
+docs/LIVE-CHECKS.md export-ignore
