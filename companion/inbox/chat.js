@@ -1,8 +1,8 @@
 import { isUrgent } from '/shared/filters.js'
 import { clockTime, plural, truncate } from '/shared/format.js'
 import { parseMarkdown } from '/shared/markdown.js'
-import { chatBubble, chatMarks, chatRowId, linkParts, pruneById, rowCacheKey, isConversationWanted, isReplyWanted, liveAnswerFits, liveFrom, mergeLive, mergeOlder, pinnedPrompt, promptCount, replyQuote, taskList } from '/shared/popout.js'
-import { approvalBlock, holdEndedCard } from './requests.js'
+import { chatBubble, chatMarks, chatRowId, linkParts, nextStepLast, withoutOpenQuestion, pruneById, rowCacheKey, isConversationWanted, isReplyWanted, liveAnswerFits, liveFrom, mergeLive, mergeOlder, pinnedPrompt, promptCount, replyQuote, taskList } from '/shared/popout.js'
+import { approvalBlock, holdEndedCard, openQuestionText } from './requests.js'
 import { $, api, el, hooks, patchChildren, selectedSession, state } from './ctx.js'
 import { composerArea, pendingBubble, sendChoice, settleComposer, updateComposer } from './composer.js'
 import { icon } from './icons.js'
@@ -344,6 +344,7 @@ export function chatPane(s) {
   const isQuestion = Boolean(block?.classList.contains('question-card'))
   const shownQuestion = pane.question.firstElementChild
   if (!holdEndedCard(pane.question, isQuestion ? block : null)) patchChildren(pane.question, isQuestion ? [block] : [])
+  pane.openQuestion = isQuestion ? openQuestionText(s) : null
   patchChildren(pane.requests, block && !isQuestion ? [block] : [])
   pane.requests.scrollTop = requestsTop
   if (isQuestion && block !== shownQuestion) pane.forceBottom = true
@@ -494,7 +495,7 @@ function paintList(s) {
   const p = pane
   const c = state.convo.get(s.key)
   const held = state.showConvo ? (c?.rows ?? null) : null
-  const rows = held?.filter(r => r.who !== 'plan') ?? null
+  const rows = held ? nextStepLast(withoutOpenQuestion(held, p.openQuestion ?? null).filter(r => r.who !== 'plan')) : null
   const list = p.list
   const isLive = list.isConnected && list.clientHeight > 0
   measureChat()
@@ -656,7 +657,7 @@ function messageBody(r) {
 }
 
 function rowClass(r, mark) {
-  return `msg ${r.who}${mark.turn ? ' turn' : ''}${(r.who === 'claude' || r.who === 'question') && !mark.head ? ' cont' : ''}`
+  return `msg ${r.who}${r.next ? ' next-step' : ''}${mark.turn ? ' turn' : ''}${(r.who === 'claude' || r.who === 'question') && !mark.head ? ' cont' : ''}`
 }
 
 function messageHead(r, mark, time) {

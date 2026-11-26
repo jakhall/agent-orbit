@@ -1,7 +1,7 @@
 import { isCharacterKey, keyAction, keyInScope, nextFocusKey, openRowKeys, queueGroups } from '/shared/popout.js'
 import { bucketOf, nearestInDirection, searchMatches, sessionName } from '/shared/map.js'
 import { focusPan, safeArea } from '/shared/camera.js'
-import { focusReply } from './composer.js'
+import { focusReply, openSkillShelf } from './composer.js'
 import { isDialogOpen, openNewSession } from './sheets.js'
 import { $, PAN_STEP, state, visibleSessions, ZOOM_STEP } from './page-state.js'
 import { groupOpen, renderRail } from './rail.js'
@@ -111,6 +111,7 @@ export function onKey(event) {
     'open-panel': () => onStage && state.focusNode && select(state.focusNode, $('cx-stage')),
     'open-in-claude': () => key && void openInClaude(key),
     reply: () => key && ((state.convo.key === key && !state.convo.agent) || select(key), focusReply(), true),
+    'apply-skill': () => key && ((state.convo.key === key && !state.convo.agent) || select(key), openSkillShelf() || toast('Can’t apply a skill to this session now.')),
     done: () => key && void triage('done', key),
     'snooze-hour': () => key && void triage('snooze-hour', key),
     'snooze-tomorrow': () => key && void triage('snooze-tomorrow', key),

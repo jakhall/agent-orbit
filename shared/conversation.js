@@ -164,6 +164,29 @@ function questionText(input) {
     .join('\n\n')
 }
 
+/**
+ * An answered question as the desktop records it: each question with the
+ * answer picked or typed, and no option list. Empty when nothing was answered.
+ * @param {Record<string, unknown>} input an AskUserQuestion tool input
+ * @param {unknown} answers the tool result's `answers`, keyed by question
+ * @returns {string}
+ */
+function answeredText(input, answers) {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return ''
+  const byQuestion = /** @type {Record<string, unknown>} */ (answers)
+  const questions = Array.isArray(input.questions) ? input.questions.slice(0, 4) : []
+  let isAnswered = false
+  const parts = questions.map(q => {
+    const asked = typeof q?.question === 'string' ? q.question : ''
+    const ask = cleanText(asked).slice(0, 300)
+    const raw = typeof byQuestion[asked] === 'string' ? cleanText(/** @type {string} */ (byQuestion[asked])).replace(/\s+/g, ' ') : ''
+    const given = raw.startsWith('[User did not answer') ? '' : raw.replace(/\s*\(recommended\)$/i, '').slice(0, 300)
+    if (given) isAnswered = true
+    return given ? `${ask}\n→ **${given.replace(/\*/g, '')}**` : ask
+  })
+  return isAnswered ? parts.filter(Boolean).join('\n\n') : ''
+}
+
 const NEXT_STEP_TOOL = 'mcp__ccd_turn__wrap_up'
 const TASK_LIST_TOOL = 'mcp__ccd_turn__update_plan'
 const TASK_STATUSES = ['pending', 'in_progress', 'completed']
@@ -316,6 +339,8 @@ function rowsOf(lines, isSidechain) {
   let turn = 0
   /** @type {{ at: number | null, o: number, phrases: string[], count: number } | null} */
   let run = null
+  /** @type {Map<string, { row: ConversationRow, input: Record<string, unknown> }>} */
+  const asks = new Map()
   /** @param {ConversationRow & { o: number }} row */
   const add = row => {
     const last = rows.at(-1)
@@ -342,7 +367,7 @@ function rowsOf(lines, isSidechain) {
     if (!t) return
     closeRun()
     const last = rows.at(-1)
-    if (last && last.who === who && turnOf.at(-1) === turn) last.text = `${last.text}\n\n${t}`
+    if (last && last.who === who && !last.next && turnOf.at(-1) === turn) last.text = `${last.text}\n\n${t}`
     else add({ who, at, text: t, o })
   }
   for (const { o, text: line } of lines) {
@@ -393,12 +418,21 @@ function rowsOf(lines, isSidechain) {
           if (prompt || TURN_NOTE.test(block.text.trimStart())) startTurn()
           say('you', at, o, prompt)
         } else say('claude', at, o, block.text)
+      } else if (block.type === 'tool_result' && entry.type === 'user') {
+        const ask = asks.get(block.tool_use_id)
+        const answered = ask ? answeredText(ask.input, entry.toolUseResult?.answers) : ''
+        if (ask && answered) {
+          ask.row.text = answered
+          ask.row.answered = true
+        }
       } else if (block.type === 'tool_use' && entry.type === 'assistant') {
         const input = block.input && typeof block.input === 'object' && !Array.isArray(block.input) ? block.input : {}
         const asked = block.name === 'AskUserQuestion' ? questionText(input) : ''
         if (asked) {
           closeRun()
           add({ who: 'question', at, text: asked, o })
+          const row = rows.at(-1)
+          if (row && typeof block.id === 'string') asks.set(block.id, { row, input })
           continue
         }
         if (block.name === HANDBACK_TOOL) {
@@ -414,7 +448,7 @@ function rowsOf(lines, isSidechain) {
           const next = nextStepRow(input)
           if (next) {
             closeRun()
-            add({ who: 'claude', at, text: next.text, o, ...(next.choices.length ? { choices: next.choices } : {}) })
+            add({ who: 'claude', at, text: next.text, o, next: true, ...(next.choices.length ? { choices: next.choices } : {}) })
           }
           continue
         }

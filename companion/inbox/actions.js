@@ -4,7 +4,7 @@ import { donePatch, isNoWindow, menuStep, NO_WINDOW_TEXT, snoozePatch, snoozeUnt
 import { sanitizePrefs } from '/shared/prefs.js'
 import { bucketOf } from '/shared/map.js'
 import { icon } from './icons.js'
-import { focusReply } from './composer.js'
+import { commandsFor, focusReply, openSkillShelf } from './composer.js'
 import { openNewSession, openSettings } from './sheets.js'
 import { $, el, post, state } from './page-state.js'
 import { toast } from './toast.js'
@@ -61,10 +61,31 @@ export function paletteActions() {
   actions.push(forIt('reply', 'Reply', 'r'), forIt('done', 'Done', 'd'), forIt('snooze-hour', 'Snooze 1 hour', 's'), forIt('snooze-tomorrow', 'Snooze until tomorrow', 'Shift+S'))
   if (bucketOf(s) !== 'needs-you') actions.push(forIt('hide', 'Hide', 'h'))
   actions.push(forIt('pin', isPinned(s.key) ? 'Unpin' : 'Pin', null))
+  if (s.canMessage) actions.push(...skillActions(s.key, name))
   return actions
 }
 
+function skillActions(key, name) {
+  const listed = commandsFor(key)
+  const has = listed?.known ? new Set(listed.commands.map(c => c.name.toLowerCase())) : null
+  const seen = new Set()
+  const out = []
+  for (const group of state.prefs?.skillShelf?.groups ?? []) {
+    for (const item of group.items) {
+      if (seen.has(item.command) || (has && !has.has(item.command.toLowerCase()))) continue
+      seen.add(item.command)
+      out.push({ id: `skill:${item.command}`, label: `Apply ${item.label}: ${name}`, verb: `Apply ${item.label}`, key, skill: { icon: item.icon, color: item.color }, search: `apply ${item.label} /${item.command} ${group.name}`.toLowerCase() })
+    }
+  }
+  return out
+}
+
 export function runAction(id, key = null) {
+  if (id.startsWith('skill:')) {
+    if (!key) return
+    if (state.convo.key !== key || state.convo.agent) select(key)
+    return openSkillShelf(id.slice('skill:'.length))
+  }
   const run = {
     'new-session': () => openNewSession(),
     settings: () => openSettings(),

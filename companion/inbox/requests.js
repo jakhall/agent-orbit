@@ -169,14 +169,22 @@ function tick() {
   updateButtons()
 }
 
-/** The request card, pinned at the top of the panel: the oldest pending request with Allow, Deny and Answer in Claude, or how the last one ended. */
+/** The first question of the question card `approvalBlock` shows for `s`, or null when it shows none. */
+export function openQuestionText(s) {
+  const a = approvalsOf(pendingApprovals(), s.cliSessionId)[0]
+  const first = a && isQuestionRequest(a) ? a.questions?.[0]?.question : null
+  return typeof first === 'string' ? first : null
+}
+
+/** The request card, pinned at the top of the panel: the oldest pending request with Allow, Deny and Answer in Claude, or how the last one ended (a question answered here shows its answer in the chat instead). */
 export function approvalBlock(s) {
   const all = pendingApprovals()
   forgetQuestions(all)
   const pending = approvalsOf(all, s.cliSessionId)
   const a = pending[0]
   if (!a) {
-    const text = outcomeText(state.approvalOutcomes.values(), s.cliSessionId, Date.now())
+    const shown = [...state.approvalOutcomes.values()].filter(o => !(isQuestionRequest(o) && o.outcome === 'answer'))
+    const text = outcomeText(shown, s.cliSessionId, Date.now())
     return text ? el('section', { id: 'approval-status', class: 'approval done', role: 'status', tabindex: '-1' }, el('span', {}, text)) : null
   }
   if (!ticker) ticker = setInterval(tick, 1_000)

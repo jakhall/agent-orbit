@@ -18,11 +18,16 @@
   margin-top: 16px;
 }
 
-.chat .msg.question {
+.chat .msg.question,
+.chat .msg.next-step {
   padding: 8px 8px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-panel);
   background: var(--surface);
+}
+
+.chat .msg.next-step {
+  margin-top: 12px;
 }
 
 .msg-head .icon.who {

@@ -36,18 +36,16 @@ test('R1: lineage edges from 2.0 stay: one per session whose parent is on the ma
   assert.deepEqual(lineage.map(e => `${e.from}>${e.to}`).sort(), expected)
 })
 
-test('2.1 review: a hub dragged onto another cluster\'s grid slot pushes that cluster to a free slot, so the two never tangle', () => {
+test('2.3: a dragged hub stays where it is dropped, even onto another cluster, and no other cluster moves', () => {
   const n = normalizeSnapshot(snapshotOf(120, 6, 3, NOW))
   const plain = layoutGraph(n, {})
   const hubs = plain.nodes.filter(x => x.kind === 'project')
   const [moved, target] = [hubs[0], hubs[2]]
-  const graph = layoutGraph(n, { [moved.id]: { dx: target.x + 40, dy: target.y - 30 } })
-  const at = id => graph.nodes.find(x => x.id === id)
-  const reach = hub => Math.max(0, ...graph.nodes.filter(x => x.kind === 'session' && x.parent === hub.id).map(x => Math.hypot(x.x - hub.x, x.y - hub.y)))
-  const a = at(moved.id)
-  assert.equal(a.x, target.x + 40)
-  for (const other of graph.nodes.filter(x => x.kind === 'project' && x.id !== moved.id)) {
-    assert.ok(Math.hypot(other.x - a.x, other.y - a.y) > reach(a) + reach(other), `${other.id} tangles with the dragged hub`)
+  for (const drop of [{ dx: target.x + 40, dy: target.y - 30 }, { dx: hubs[1].x - 450, dy: hubs[1].y }]) {
+    const graph = layoutGraph(n, { [moved.id]: drop })
+    const at = id => graph.nodes.find(x => x.id === id)
+    assert.deepEqual([at(moved.id).x, at(moved.id).y], [drop.dx, drop.dy])
+    for (const other of hubs.filter(x => x.id !== moved.id)) assert.deepEqual([at(other.id).x, at(other.id).y], [other.x, other.y], `${other.id} moved`)
   }
 })
 

@@ -259,7 +259,7 @@ mod ── GET /api/mod/replies/<cli id> (every 2 s) ──▶ { armed, replies 
 page ◀── GET /api/reply/<id>: pending, then sent | queued | refused | failed
 ```
 
-- **Refused before queueing:** bad text (`checkReplyText`: 1 to 4,000 characters; no leading `/`, `!`, `#` or slash look-alike), a key not in the snapshot, no plain CLI id, a record without `replyProtocol: 2` (`409 { older: true }`), not armed (`409 { reason: 'not-armed' }`), no window.
+- **Refused before queueing:** bad text (`checkReplyText`: 1 to 4,000 characters; no leading `!`, unlisted `/` or slash look-alike; `#` is plain text), a key not in the snapshot, no plain CLI id, a record without `replyProtocol: 2` (`409 { older: true }`), not armed (`409 { reason: 'not-armed' }`), no window.
 - **Queue:** at most 200 entries, each handed out for 60 s; nothing touches `inbox/` but the mod's `seen.json`.
 - **Mod:** delivers only what the server hands it, and nothing while `armed` is false (a launch's first prompt included). `judgeReply` checks schema, its own CLI id, age (≤ 60 s, ≤ 5 s ahead), an unseen id and the text; then it remembers the id, claims (first claim wins: `withdrawn`, `replay`, `unknown` otherwise), submits, waits at most 1 s, and acknowledges `sent`, `queued` or `failed`. Refusals are acknowledged too; only counts reach the record.
 - **Withdraw:** unclaimed → `withdrawn`; claimed → the server waits up to 5 s for the acknowledgement (delivery reported as such, refusal as `withdrawn`, nothing as `unknown`).
@@ -333,7 +333,7 @@ POST /api/launch { folder, prompt, model, effort, mode, confirmBypass, digest } 
 ```
 
 - Models: Default, `LAUNCH_MODELS`, then ids seen in the snapshot matching `^claude-[a-z]+(-[0-9]+){1,3}$` (`GET /api/launch/options`); they reach only the `--model` value.
-- One launch in flight and one per 3 s. `checkLaunch` checks the allow-lists (Bypass only with `confirmBypass`; `default` refused), the folder (`launchFolder`), the prompt (≤ 4,000 characters, no leading `/`, `!`, `#`) and the digest.
+- One launch in flight and one per 3 s. `checkLaunch` checks the allow-lists (Bypass only with `confirmBypass`; `default` refused), the folder (`launchFolder`), the prompt (≤ 4,000 characters, no leading `!` or `/` other than a shelf skill) and the digest.
 - `wt.exe` is the App Execution Alias in `WindowsApps`; `claude.exe` is the newest bundled version with a valid Authenticode signature from `O="Anthropic, PBC"`, else 502. Argv array, no shell, allow-list environment, the prompt never on a command line.
 - The first prompt waits in memory until the new session's record reports `replyProtocol: 2`, then enters the reply queue as a first prompt (delivered only while replies are armed; a launch with a first prompt or Bypass permissions is refused while they are off). Not reported within 3 minutes, or an older mod: dropped. A restart loses it.
 - Orbit never trusts a folder and never writes `~/.claude.json`.

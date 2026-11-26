@@ -44,6 +44,8 @@ export const state = {
   stageW: 0,
   stageH: 0,
   stageLeft: 0,
+  windowW: 0,
+  windowH: 0,
   view: 'map',
   nodeDrag: false,
   prefs: null,

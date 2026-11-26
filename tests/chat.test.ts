@@ -3,7 +3,7 @@ import { expect, test } from 'claude-code/testing'
 import type { ConversationRow } from '../types'
 import { CONVERSATION_ROWS, fileIdOf, offsetParam, pageRows, readConversation, textLines, transcriptLines } from '../shared/conversation.js'
 import { MARKDOWN_MAX_CHARS, MARKDOWN_TABLE_COLUMNS, MARKDOWN_TABLE_ROWS, parseInline, parseMarkdown, tableCells } from '../shared/markdown.js'
-import { BUBBLE_KEEP_MS, CHAT_MIN_PX, chatBubble, isAwaitingAgent, chatMarks, answeredQuestions, chooseOption, composerHint, composerLabel, canWake, asleepCardText, dayLabel, DETAILS_MIN_PX, emptyQuestionDraft, isRowAfter, mayFocusNewCard, liveFrom, mergeLive, mergeOlder, PIN_COVER_PX, PIN_VISIBLE_PX, pinnedPrompt, promptCount, questionHint, taskList, questionPost, questionReview, readOnlyShort, tabAfterChoice, replyQuote, TURN_GAP_MS, type Send } from '../shared/popout.js'
+import { BUBBLE_KEEP_MS, CHAT_MIN_PX, chatBubble, isAwaitingAgent, chatMarks, answeredQuestions, chooseOption, composerHint, composerLabel, canWake, asleepCardText, dayLabel, DETAILS_MIN_PX, emptyQuestionDraft, isRowAfter, mayFocusNewCard, liveFrom, mergeLive, mergeOlder, nextStepLast, withoutOpenQuestion, PIN_COVER_PX, PIN_VISIBLE_PX, pinnedPrompt, promptCount, questionHint, taskList, questionPost, questionReview, readOnlyShort, tabAfterChoice, replyQuote, TURN_GAP_MS, type Send } from '../shared/popout.js'
 import { checkQuestionAnswer } from '../shared/approvals.js'
 import { steerContext } from '../shared/inbox.js'
 import { commandHead } from '../shared/redact.js'
@@ -573,9 +573,39 @@ test('the desktop next-step box reads as a Claude row with its question, its rep
     1,
   )
   const rows = rowsOfTranscript(asks).rows.filter(r => r.who !== 'plan')
-  expect(rows.map(r => [r.who, r.text, r.choices])).toEqual([['claude', 'The plan is in the note.\n\n**Build it here?**', ['Yes, build here', 'Not now']]])
+  expect(rows.map(r => [r.who, r.text, r.choices, r.next])).toEqual([['claude', 'The plan is in the note.\n\n**Build it here?**', ['Yes, build here', 'Not now'], true]])
   const quiet = assistant([{ type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'ls' } }, { type: 'tool_use', id: 'w', name: 'mcp__ccd_turn__wrap_up', input: { recap: 'Done.' } }], 2)
   expect(rowsOfTranscript(quiet).rows.filter(r => r.who !== 'plan').map(r => r.text)).toEqual(['Ran ls · 1 tool'])
+})
+
+test('2.4.2: while Orbit shows a question card its row is left out, so the question is not drawn twice; the answered row comes back (Jak 2026-11-25)', () => {
+  const r = (who: ConversationRow['who'], text: string, answered?: true): ConversationRow => ({ who, at: null, text, ...(answered ? { answered } : {}) })
+  const rows = [r('you', 'a'), r('question', 'Old one?\n→ **x**', true), r('claude', 'next'), r('question', 'Which  branch\nshould I push?\n- main\n- dev')]
+  expect(withoutOpenQuestion(rows, 'Which branch should I push?').map(x => x.text)).toEqual(['a', 'Old one?\n→ **x**', 'next'])
+  expect(withoutOpenQuestion(rows, null)).toBe(rows)
+  expect(withoutOpenQuestion(rows, 'Something else?')).toBe(rows)
+  expect(withoutOpenQuestion([r('question', 'Old one?\n→ **x**', true)], 'Old one?')).toHaveLength(1)
+})
+
+test('2.4.2: the next-step box is drawn after the closing message the agent writes once it is filled, and after the rest of its turn; the next prompt or event ends the turn (Jak 2026-11-25)', () => {
+  const turn = [
+    user('Run the suite', 1),
+    assistant([{ type: 'tool_use', id: 'w', name: 'mcp__ccd_turn__wrap_up', input: { recap: 'Same 48 failures.', ask: 'Merge master in?', actions: [{ label: 'Only if GitHub asks' }, { label: 'Merge now' }] } }], 2),
+    said('**The branch adds no failures.**\n\n| | Failed |\n|---|---|\n| Branch | 48 |', 3),
+  ].join('\n')
+  const rows = rowsOfTranscript(turn).rows.filter(r => r.who !== 'plan')
+  expect(rows.map(r => r.who)).toEqual(['you', 'claude', 'claude'])
+  expect(rows[1]?.next).toBe(true)
+  const drawn = nextStepLast(rows)
+  expect(drawn.map(r => r.text.slice(0, 12))).toEqual(['Run the suit', '**The branch', 'Same 48 fail'])
+  expect(drawn.at(-1)?.choices).toEqual(['Only if GitHub asks', 'Merge now'])
+  expect(rows[1]?.next).toBe(true)
+
+  const r = (who: ConversationRow['who'], text: string, next?: true): ConversationRow => ({ who, at: null, text, ...(next ? { next } : {}) })
+  const two = [r('you', 'a'), r('claude', 'box 1', true), r('tools', 'ran'), r('claude', 'close 1'), r('event', 'note'), r('you', 'b'), r('claude', 'box 2', true)]
+  expect(nextStepLast(two).map(x => x.text)).toEqual(['a', 'ran', 'close 1', 'box 1', 'note', 'b', 'box 2'])
+  const plain = [r('you', 'a'), r('claude', 'only')]
+  expect(nextStepLast(plain)).toEqual(plain)
 })
 
 test('the desktop task list: each call is a hidden plan row that does not split a run of tools, folded into the list as it stands; the next-step box checks it off and the next prompt clears it', () => {

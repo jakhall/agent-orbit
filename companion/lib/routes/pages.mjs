@@ -6,7 +6,7 @@ import { send } from '../http.mjs'
 import { HERE, ROOT, opts } from '../runtime.mjs'
 import { COOKIE_NAME, cookieToken, queryToken } from '../secrets.mjs'
 
-const SHARED_FILES = new Set(['approvals.js', 'camera.js', 'constants.js', 'failure.js', 'filters.js', 'format.js', 'inbox.js', 'launch.js', 'layout.js', 'links.js', 'map.js', 'markdown.js', 'popout.js', 'prefs.js', 'render.js'])
+const SHARED_FILES = new Set(['approvals.js', 'camera.js', 'constants.js', 'failure.js', 'filters.js', 'format.js', 'inbox.js', 'launch.js', 'layout.js', 'links.js', 'map.js', 'markdown.js', 'popout.js', 'prefs.js', 'pr-links.js', 'render.js', 'skills.js'])
 const ENTRY_PAGES = { '/inbox': 'inbox.html' }
 const INBOX_FILE = /^[a-z0-9-]+\.(?:js|css)$/
 const ICON_FILES = {

@@ -52,6 +52,7 @@ export function mergePrefs(patch) {
     next.positions = positions
   }
   if (Array.isArray(patch.collapsed)) next.collapsed = patch.collapsed.filter(v => typeof v === 'string' && v.length <= 600).slice(0, 500)
+  if (patch.skillShelf && typeof patch.skillShelf === 'object') next.skillShelf = patch.skillShelf
   if (Array.isArray(patch.pinned)) next.pinned = [...new Set(patch.pinned.filter(v => typeof v === 'string' && v.length <= 600))].slice(0, MAX_PINNED)
   Object.assign(next, applyMarks(next, patch))
   for (const group of ['projectOverrides', 'titles', 'tints', 'projectTints']) {

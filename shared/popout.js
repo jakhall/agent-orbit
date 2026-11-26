@@ -5,6 +5,7 @@ import { layoutGraph } from './layout.js'
 import { ago, clockTime, duration, plural, since, truncate } from './format.js'
 import { APPROVAL_ARM_MS } from './approvals.js'
 import { HOLD_TTL_MS, isDelivered, knownReason, REFUSAL_TEXT, REPLY_TTL_MS } from './inbox.js'
+import { MOD_VERSION } from './constants.js'
 
 /** @typedef {import('../types').SessionView} SessionView */
 /** @typedef {import('../types').ConversationRow} ConversationRow */
@@ -255,16 +256,20 @@ export function sendBlock(mode) {
 /**
  * The message box after a reply's acknowledgement: `sent` with no line under
  * it (2.1.9) or "Queued as you: sends when the session is idle.", else `failed` with the
- * session's reason in the person's terms.
+ * session's reason in the person's terms. A `command` refusal from a session
+ * whose Orbit differs from the page's names that version: its text rules may
+ * be older than the page's (a leading `#`, 2.4.4).
  * @param {string} key
  * @param {Pick<ReplyAck, 'status' | 'reason'>} ack
  * @param {string} draft the text, kept for another try when it was not sent
+ * @param {string | null} [modVersion] the session's Orbit version
  * @returns {Send}
  */
-export function sendAfterAck(key, ack, draft) {
+export function sendAfterAck(key, ack, draft, modVersion = null) {
   if (ack.status === 'sent') return { key, draft: '', status: 'sent', message: '' }
   if (ack.status === 'queued') return { key, draft: '', status: 'sent', message: 'Queued as you: sends when the session is idle.' }
   const reason = knownReason(ack.reason)
+  if (reason === 'command' && modVersion && modVersion !== MOD_VERSION) return { key, draft, status: 'failed', message: `Not sent: this session runs Orbit ${modVersion}, which refuses it. A session started now takes it.` }
   return { key, draft, status: 'failed', message: `Not sent: ${reason ? REFUSAL_TEXT[reason] : 'the session didn’t accept it'}.` }
 }
 
@@ -566,6 +571,19 @@ export function asleepCardText(phase, error = null) {
 export function shownSuggestion(s, { text, showConvo, isBusy, isAsking }) {
   if (!showConvo || s.hasSuggestion !== true || s.lifecycle === 'running' || isBusy || isAsking) return null
   return typeof text === 'string' && text.trim() !== '' ? text : null
+}
+
+/**
+ * The empty composer's dim text: a held question's prompt first, then the
+ * desktop's suggestion (Tab takes it, asleep or awake), then the asleep note,
+ * then the usual hint.
+ * @param {{ isAsking: boolean, suggestion: string | null, canMessage: boolean }} at
+ * @param {{ usual: string, asleep: string, question: string }} texts
+ */
+export function composerPlaceholder({ isAsking, suggestion, canMessage }, { usual, asleep, question }) {
+  if (isAsking) return question
+  if (suggestion) return suggestion
+  return canMessage ? usual : asleep
 }
 
 /**
@@ -961,6 +979,54 @@ function textHash(text) {
   let h = 0x811c9dc5
   for (let i = 0; i < text.length; i += 1) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
   return (h >>> 0).toString(36)
+}
+
+/**
+ * The rows without the question Orbit's card is showing: while it is open the
+ * card stands in for its row, as Claude desktop shows only the card, and once
+ * it is answered the row comes back with the answer. Only the last unanswered
+ * question row whose text starts with `question` is dropped.
+ * @template {{ who: string, text: string, answered?: true }} R
+ * @param {readonly R[]} rows
+ * @param {string | null} question the open card's first question, or null
+ * @returns {readonly R[]}
+ */
+export function withoutOpenQuestion(rows, question) {
+  const squash = (/** @type {string} */ t) => t.replace(/\s+/g, ' ').trim()
+  const head = question ? squash(question).slice(0, 80) : ''
+  if (!head) return rows
+  const at = rows.findLastIndex(r => r.who === 'question' && !r.answered)
+  if (at < 0 || !squash(rows[at]?.text ?? '').startsWith(head)) return rows
+  return rows.filter((_, i) => i !== at)
+}
+
+/**
+ * The rows in drawing order: each next-step box moves after the rest of its
+ * turn (the Claude text and tool runs before the next prompt, event or
+ * question), as Claude desktop draws it below the closing message even
+ * though the agent fills it first. The rows themselves are not changed.
+ * @template {{ who: string, next?: true }} R
+ * @param {readonly R[]} rows
+ * @returns {R[]}
+ */
+export function nextStepLast(rows) {
+  /** @type {R[]} */
+  const out = []
+  /** @type {R[]} */
+  let held = []
+  for (const r of rows) {
+    if (r.next) {
+      held.push(r)
+      continue
+    }
+    if (held.length && r.who !== 'claude' && r.who !== 'tools' && r.who !== 'plan') {
+      out.push(...held)
+      held = []
+    }
+    out.push(r)
+  }
+  out.push(...held)
+  return out
 }
 
 /**
@@ -1471,6 +1537,7 @@ export const KEY_MAP = [
   { key: 'Enter', action: 'open-panel', label: 'Open the focused session' },
   { key: 'o', action: 'open-in-claude', label: 'Open the session in Claude' },
   { key: 'r', action: 'reply', label: 'Reply to the session' },
+  { key: 'a', action: 'apply-skill', label: 'Apply a skill to the session' },
   { key: 'd', action: 'done', label: 'Mark done' },
   { key: 's', action: 'snooze-hour', label: 'Snooze for an hour' },
   { key: 'S', shift: true, action: 'snooze-tomorrow', label: 'Snooze until tomorrow 9:00' },
@@ -1635,8 +1702,10 @@ export function rowSecondLine(s, reason) {
  * finds the session, not a triage action. With nothing typed: sessions, page
  * actions, then session actions; with a query: matching page actions, the
  * sessions (already matched by `switcherResults`), then matching session actions.
+ * Skill actions (`search` set) appear only for a query, when every query word
+ * starts a word of `search` (split on spaces, `/` and `:`), at most `PALETTE_SKILLS_MAX`, after the other session actions.
  * @template S
- * @template {{ id: string, label: string, verb?: string }} A
+ * @template {{ id: string, label: string, verb?: string, search?: string }} A
  * @param {string} query
  * @param {readonly S[]} sessions
  * @param {readonly A[]} actions
@@ -1646,10 +1715,19 @@ export function paletteResults(query, sessions, actions) {
   const q = query.trim().toLowerCase()
   const matches = (/** @type {string} */ text) => !q || text.toLowerCase().split(/\s+/).some(word => word.startsWith(q))
   const pageActions = actions.filter(a => !a.verb && matches(a.label)).map(action => ({ kind: /** @type {const} */ ('action'), action }))
-  const sessionActions = actions.filter(a => a.verb && matches(a.verb)).map(action => ({ kind: /** @type {const} */ ('action'), action }))
+  const sessionActions = actions.filter(a => a.verb && a.search === undefined && matches(a.verb)).map(action => ({ kind: /** @type {const} */ ('action'), action }))
+  const queryWords = q.split(/[\s/:]+/).filter(Boolean)
+  const skillHit = (/** @type {string} */ search) => {
+    const words = search.split(/[\s/:]+/)
+    return queryWords.every(w => words.some(word => word.startsWith(w)))
+  }
+  const skillActions = queryWords.length ? actions.filter(a => a.search !== undefined && skillHit(a.search)).slice(0, PALETTE_SKILLS_MAX).map(action => ({ kind: /** @type {const} */ ('action'), action })) : []
   const sessionRows = sessions.map(session => ({ kind: /** @type {const} */ ('session'), session }))
-  return q ? [...pageActions, ...sessionRows, ...sessionActions] : [...sessionRows, ...pageActions, ...sessionActions]
+  return q ? [...pageActions, ...sessionRows, ...sessionActions, ...skillActions] : [...sessionRows, ...pageActions, ...sessionActions]
 }
+
+/** The most "Apply" skill rows the palette shows for one query. */
+export const PALETTE_SKILLS_MAX = 8
 
 /**
  * The header's limit meters from `limitsView`: the two fullest windows (one

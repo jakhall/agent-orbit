@@ -1,6 +1,6 @@
 {
   "name": "orbit",
-  "version": "2.3.0",
+  "version": "2.4.5",
   "description": "Orbit: live status of every local Claude Code session and its subagents, grouped by project, with one-click Open Session, new sessions, and a pop-out window",
   "types": "./types/index.d.ts"
 }

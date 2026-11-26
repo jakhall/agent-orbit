@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { normalizeDesktop, promptSuggestionOf, SUGGESTION_MAX } from '../shared/aggregate/desktop.js'
-import { shownSuggestion, wantsSuggestion } from '../shared/popout.js'
+import { composerPlaceholder, shownSuggestion, wantsSuggestion } from '../shared/popout.js'
 import { NOW } from './fixtures'
 
 const ID = 'local_0a1b2c3d-0000-4000-8000-000000000001'
@@ -35,4 +35,13 @@ test('the composer shows the suggestion only with conversation text on, while id
   expect(shownSuggestion(idle, { ...on, isAsking: true })).toBe(null)
   expect(shownSuggestion(idle, { ...on, text: null })).toBe(null)
   expect([wantsSuggestion(idle, true), wantsSuggestion(idle, false), wantsSuggestion({ lifecycle: 'idle' }, true)]).toEqual([true, false, false])
+})
+
+test('2.4.1: an asleep session shows the suggestion as its placeholder too; a question still comes first (Jak 2026-11-25)', () => {
+  const texts = { usual: 'Reply', asleep: 'Write now; send once it wakes', question: 'Answer' }
+  expect(composerPlaceholder({ isAsking: false, suggestion: 'run the tests', canMessage: false }, texts)).toBe('run the tests')
+  expect(composerPlaceholder({ isAsking: false, suggestion: null, canMessage: false }, texts)).toBe(texts.asleep)
+  expect(composerPlaceholder({ isAsking: false, suggestion: 'run the tests', canMessage: true }, texts)).toBe('run the tests')
+  expect(composerPlaceholder({ isAsking: false, suggestion: null, canMessage: true }, texts)).toBe(texts.usual)
+  expect(composerPlaceholder({ isAsking: true, suggestion: null, canMessage: true }, texts)).toBe(texts.question)
 })

@@ -175,6 +175,8 @@ export type PullRequestView = {
   repo: string
   branch: string | null
   state: string
+  /** Set when Claude desktop dismissed this link from the session. */
+  dismissed?: true
 }
 
 export type ProjectView = {
@@ -372,6 +374,8 @@ export type ApprovalOutcome = {
 /** A linked pull request's state as the pop-out server last read it with `gh` (`prSummary`). */
 export type PrStatus = {
   state: 'open' | 'draft' | 'merged' | 'closed'
+  /** The PR title from `gh`, one line, at most 200 characters; null when it had none. */
+  title?: string | null
   checks: 'passing' | 'failing' | 'pending' | 'none'
   failing: string[]
   review: 'approved' | 'changes' | 'required' | null
@@ -611,8 +615,34 @@ export type Prefs = {
   tints?: Record<string, SessionTint>
   /** Default icon colours of projects: project id → a colour other than blue. */
   projectTints?: Record<string, SessionTint>
+  /** The person's curated skills for Apply skill, one shelf for the machine. Absent in files written before it. */
+  skillShelf?: SkillShelf
   /** When stored data was last cleared: older records from the 1.0 folder are ignored. */
   clearedAt: number
+}
+
+/** The person's grouped, renamed skills. A command may sit in more than one group. */
+export type SkillShelf = { groups: SkillShelfGroup[] }
+
+export type SkillShelfGroup = {
+  /** Stable id, lowercase letters, digits and dashes, unique in the shelf. */
+  id: string
+  /** One line, at most 60 characters. */
+  name: string
+  items: SkillShelfItem[]
+}
+
+export type SkillShelfItem = {
+  /** The slash command without its slash; one Orbit may send (`isCommandAllowed`). */
+  command: string
+  /** The person's name for it: one line, at most 60 characters. */
+  label: string
+  /** The person's saved default prompt, at most `MAX_MESSAGE_CHARS`. Never conversation text. */
+  template?: string
+  /** A key of `SKILL_ICONS` other than `skill`; absent means the wand. */
+  icon?: string
+  /** A key of `SKILL_COLORS`; absent means grey. */
+  color?: string
 }
 
 /** One step of the desktop's task list. */
@@ -634,6 +664,10 @@ export type ConversationRow = {
   cut?: boolean
   /** The desktop next-step box's reply buttons, its pick first (2.1.7). */
   choices?: string[]
+  /** The row is the desktop's next-step box, drawn after the rest of its turn (2.4.2). */
+  next?: true
+  /** A `question` row whose answer is in the transcript: its text is each question with the answer, not the options (2.4.2). */
+  answered?: true
   /** A `plan` row's change to the task list (2.2.20). */
   plan?: TaskOp
 }

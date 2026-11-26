@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { clampZoom, easeOut, focusPan, minimapView, safeArea, shouldRefit, tweenCamera, zoomAround, zoomLimits } from '../shared/camera.js'
+import { clampZoom, easeOut, focusPan, minimapView, safeArea, shouldRefit, shouldRefitOnResize, tweenCamera, zoomAround, zoomLimits } from '../shared/camera.js'
 
 const STAGE = { w: 1000, h: 600 }
 const near = (a: number, b: number, eps: number) => Math.abs(a - b) <= eps
@@ -10,6 +10,14 @@ test('C4: Fit follows a filter change only while the person has not moved the ca
   expect(shouldRefit('a', 'b', true)).toBe(false)
   expect(shouldRefit('a', 'a', false)).toBe(false)
   expect(shouldRefit(null, 'a', false)).toBe(false)
+})
+
+test('2.4.1: after Fit, a resized window refits, but the panel opening on select keeps the zoom (Jak 2026-11-25)', () => {
+  const win = { w: 1600, h: 900 }
+  expect(shouldRefitOnResize(win, win, false)).toBe(false)
+  expect(shouldRefitOnResize(win, { w: 1400, h: 900 }, false)).toBe(true)
+  expect(shouldRefitOnResize(win, { w: 1600, h: 800 }, false)).toBe(true)
+  expect(shouldRefitOnResize(win, { w: 1400, h: 900 }, true)).toBe(false)
 })
 
 test('C4: the safe area is the stage less the panel over it, the reserved corner and a margin', () => {

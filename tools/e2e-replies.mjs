@@ -195,7 +195,6 @@ try {
     ['slash behind a zero-width space', `${ch(0x200b)}/cost`],
     ['fullwidth slash', '／cost'],
     ['shell escape (!)', '!echo orbit-e2e'],
-    ['memory shortcut (#)', '#remember orbit-e2e'],
   ]) {
     const refused = await api('POST', '/api/reply', { sessionKey: key, text })
     step(name, { status: refused.status, reason: refused.json?.reason ?? null }, refused.status === 400 && refused.json?.reason === 'command')

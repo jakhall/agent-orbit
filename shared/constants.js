@@ -7,7 +7,7 @@
 /** @typedef {import('../types').TimePreset} TimePreset */
 /** @typedef {import('../types').AttentionKind} AttentionKind */
 
-export const MOD_VERSION = '2.3.0'
+export const MOD_VERSION = '2.4.5'
 export const APP_NAME = 'Orbit'
 export const MAX_PROMPT_CHARS = 4000
 export const MAX_MESSAGE_CHARS = 4000

@@ -63,6 +63,21 @@ test('a question Claude asks you becomes its own row with its option labels; oth
   expect(JSON.stringify(rows)).not.toContain('SECRET')
 })
 
+test('2.4.2: an answered question shows each question with its answer, as Claude desktop records it; an unanswered one keeps its options (Jak 2026-11-25)', () => {
+  const ask = { questions: [{ question: 'Which branch?', header: 'Branch', options: [{ label: 'main', description: 'SECRET-DESC' }, { label: 'release' }, { label: 'dev' }] }, { question: 'Tag it?', header: 'Tag', options: [{ label: 'Yes' }, { label: 'No' }] }] }
+  const result = (answers: unknown) => line({ type: 'user', timestamp: new Date(NOW + 4000).toISOString(), message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'q1', content: 'SECRET-RESULT' }] }, toolUseResult: { questions: ask.questions, answers } })
+  const asked = assistant([{ type: 'tool_use', id: 'q1', name: 'AskUserQuestion', input: ask }], 3)
+  const rowsWith = (...more: string[]) => rowsOfTranscript([user('Ship it?', 1), asked, ...more].join('\n')).rows.filter(r => r.who === 'question')
+  expect(rowsWith().map(r => [r.text, r.answered])).toEqual([['Which branch?\n- main\n- release\n- dev\n\nTag it?\n- Yes\n- No', undefined]])
+  expect(rowsWith(result({ 'Which branch?': 'release', 'Tag it?': 'No, *not yet*' })).map(r => [r.text, r.answered])).toEqual([['Which branch?\n→ **release**\n\nTag it?\n→ **No, not yet**', true]])
+  expect(rowsWith(result({ 'Which branch?': 'dev' }))[0]?.text).toBe('Which branch?\n→ **dev**\n\nTag it?')
+  expect(rowsWith(result({ 'Which branch?': 'main (Recommended)' }))[0]?.text).toBe('Which branch?\n→ **main**\n\nTag it?')
+  expect(rowsWith(result({}))[0]?.answered).toBeUndefined()
+  const dismissed = '[User did not answer this question — they sent a message instead. Treat that message as their response; do not re-ask.]'
+  expect(rowsWith(result({ 'Which branch?': dismissed, 'Tag it?': dismissed }))[0]?.answered).toBeUndefined()
+  expect(JSON.stringify(rowsWith(result({ 'Which branch?': 'dev' })))).not.toContain('SECRET')
+})
+
 test("the app's wrapper tags are unwrapped or dropped by name, and a prompt that merely starts with < is kept", () => {
   const text = (prompt: string) => rowsOfTranscript(user(prompt, 1)).rows.map(r => r.text)
   expect(text('<div> layout is broken')).toEqual(['<div> layout is broken'])

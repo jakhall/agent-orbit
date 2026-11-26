@@ -18,6 +18,18 @@ export function shouldRefit(previous, next, isMoved) {
 }
 
 /**
+ * Whether a resized stage should refit the camera: only when the window itself
+ * changed size and the person has not moved the camera since the last Fit. A
+ * panel or column opening or closing inside the same window keeps the zoom.
+ * @param {Stage} previousWindow the window's inner size at the last draw
+ * @param {Stage} nextWindow
+ * @param {boolean} isMoved
+ */
+export function shouldRefitOnResize(previousWindow, nextWindow, isMoved) {
+  return !isMoved && (previousWindow.w !== nextWindow.w || previousWindow.h !== nextWindow.h)
+}
+
+/**
  * The part of the stage a selected session should be visible in: the stage
  * less the panel over its right side, less a band at the bottom (camera
  * controls, minimap), less a margin.

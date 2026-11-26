@@ -1,5 +1,5 @@
 import { checkReplyText, commandMenu, parseCommand } from '/shared/inbox.js'
-import { chatBubble, canWake, isAwaitingAgent, composerButton, composerHint, isNoWindow, NO_WINDOW_TEXT, fieldFate, heldText, pollErrorStep, composerLabel, draftOf, readOnlyShort, readOnlyText, REPLY_OLDER_TEXT, replyDeadline, replyRefusal, sendAfterAck, shownSuggestion, wantsSuggestion, sendBlock, sendMode, shellSendBlock, sendOf, sendUpdate, setDraft, stopText, withdrawOutcome } from '/shared/popout.js'
+import { chatBubble, canWake, isAwaitingAgent, composerButton, composerHint, isNoWindow, NO_WINDOW_TEXT, fieldFate, heldText, pollErrorStep, composerLabel, draftOf, readOnlyShort, readOnlyText, REPLY_OLDER_TEXT, replyDeadline, replyRefusal, sendAfterAck, composerPlaceholder, shownSuggestion, wantsSuggestion, sendBlock, sendMode, shellSendBlock, sendOf, sendUpdate, setDraft, stopText, withdrawOutcome } from '/shared/popout.js'
 import { truncate } from '/shared/format.js'
 import { $, announce as say, api, el, hooks, selectedSession, state } from './ctx.js'
 import { followChat } from './chat.js'
@@ -7,6 +7,7 @@ import { barSpinner } from './asleep.js'
 import { dismissQuestion, heldQuestion } from './requests.js'
 import { icon } from './icons.js'
 import { asleepCard } from './asleep.js'
+import { openSkills } from './skills.js'
 
 const renderDetail = () => hooks.rerender()
 const isArmed = capability => hooks.isArmed(capability)
@@ -114,8 +115,9 @@ function buildComposer(key) {
     event.preventDefault()
     submit()
   })
-  const root = el('div', { class: 'composer' }, label, menu, el('div', { class: 'send-row' }, area, button), error)
-  return { key, root, label, area, error, button, menu, list, hint, items: [], active: 0, dismissed: null, isFrozen: false, suggestion: null }
+  const skill = el('button', { class: 'icon-btn ghost cx-skill', type: 'button', 'aria-label': 'Apply skill', 'aria-keyshortcuts': 'A', title: 'Apply skill (a)', 'aria-haspopup': 'dialog', onclick: () => openSkillShelf() }, icon('skill'))
+  const root = el('div', { class: 'composer' }, label, menu, error, el('div', { class: 'send-row' }, area, skill, button))
+  return { key, root, label, area, error, button, skill, menu, list, hint, items: [], active: 0, dismissed: null, isFrozen: false, suggestion: null }
 }
 
 function takeSuggestion(event) {
@@ -290,7 +292,7 @@ export function updateComposer(s) {
   const isAsking = Boolean(heldQuestion(s))
   const isBusy = isInFlight(send)
   comp.suggestion = shownSuggestion(s, { text: suggestionOf(s), showConvo: state.showConvo, isBusy, isAsking })
-  const placeholder = !s.canMessage ? ASLEEP_PLACEHOLDER : isAsking ? QUESTION_PLACEHOLDER : (comp.suggestion ?? usual)
+  const placeholder = composerPlaceholder({ isAsking, suggestion: comp.suggestion, canMessage: Boolean(s.canMessage) }, { usual, asleep: ASLEEP_PLACEHOLDER, question: QUESTION_PLACEHOLDER })
   if (comp.area.placeholder !== placeholder) comp.area.placeholder = placeholder
   comp.area.classList.toggle('has-suggestion', comp.suggestion !== null)
   if (comp.suggestion) comp.area.setAttribute('aria-keyshortcuts', 'Tab')
@@ -354,6 +356,21 @@ function syncButton(s) {
   comp.button.title = isAsleep ? ASLEEP_SEND_TITLE : title
   comp.button.disabled = isAsleep
   comp.button.setAttribute('aria-disabled', String(isBusy || isAsleep))
+  comp.skill.disabled = isAsleep
+  comp.skill.title = isAsleep ? ASLEEP_SEND_TITLE : 'Apply skill (a)'
+}
+
+/**
+ * Opens the skill explorer for the selected session, at `command`'s Apply
+ * step when given and the session has it. Answers whether it opened.
+ * @param {string | null} [command]
+ * @returns {boolean}
+ */
+export function openSkillShelf(command = null) {
+  const s = selectedSession()
+  if (!s || !comp || comp.key !== s.key || comp.isFrozen || !s.canMessage) return false
+  openSkills(s, sendLine, command)
+  return true
 }
 
 async function stopSession() {
@@ -402,6 +419,7 @@ function freezeComposer(s, why) {
   comp.isFrozen = true
   comp.area.readOnly = true
   comp.button.setAttribute('aria-disabled', 'true')
+  comp.skill.disabled = true
   showComposerError(s.key, `${why} Your text is kept as a draft.`)
 }
 
@@ -463,6 +481,36 @@ export function sendChoice(key, text) {
   setDraft(state.drafts, key, draft)
   autoGrow(comp.area)
   if (!wasSent) comp.area.focus()
+}
+
+/**
+ * Sends `text` (a skill's slash line) through the composer's own checks, keeping any draft.
+ * Answers null when it went, else why it did not.
+ * @param {string} key
+ * @param {string} text
+ * @returns {string | null}
+ */
+export function sendLine(key, text) {
+  const s = selectedSession()
+  if (!s || s.key !== key || !comp || comp.key !== key) return 'This session is no longer selected.'
+  if (!s.canMessage) return readOnlyText(s)
+  const paused = state.shell ? shellSendBlock(state.shell) : null
+  if (paused) return paused.text
+  const block = sendBlock(sendMode(s, isArmed('replies')))
+  if (block) return block.text
+  if (comp.isFrozen) return 'This session cannot take a message right now.'
+  const draft = comp.area.value
+  const before = composerError
+  comp.area.value = text
+  submit()
+  const wasSent = comp.area.value === ''
+  comp.area.value = draft
+  setDraft(state.drafts, key, draft)
+  autoGrow(comp.area)
+  if (wasSent) return null
+  const why = composerError?.key === key && composerError !== before ? composerError.text : null
+  showComposerError(key, before?.key === key ? before.text : null, before?.isInvalid)
+  return why ?? 'Could not send.'
 }
 
 async function skipQuestion(s, question, text) {
@@ -609,7 +657,7 @@ async function watchReply(s, sent, id, createdAt) {
       }
       if (result.status !== 'pending') {
         watches.delete(id)
-        showSend(s.key, { ...base, ...sendAfterAck(s.key, result, text), draft: text, settledAt: Date.now() })
+        showSend(s.key, { ...base, ...sendAfterAck(s.key, result, text, s.publisher?.modVersion ?? null), draft: text, settledAt: Date.now() })
         return
       }
     }
@@ -644,7 +692,7 @@ async function withdraw(s, send) {
   }
   const outcome = withdrawOutcome(answer, errorStatus)
   if (outcome === 'delivered') {
-    showSend(s.key, { ...send, ...sendAfterAck(s.key, answer, text), draft: text, settledAt: Date.now() })
+    showSend(s.key, { ...send, ...sendAfterAck(s.key, answer, text, s.publisher?.modVersion ?? null), draft: text, settledAt: Date.now() })
   } else if (outcome === 'unknown') {
     showSend(s.key, { ...send, status: 'unknown', message: MAYBE, settledAt: Date.now() })
   } else {

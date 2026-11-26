@@ -203,6 +203,36 @@ button.small {
   color: var(--accent);
 }
 
+.c-blue {
+  --sk: var(--accent);
+}
+
+.c-green {
+  --sk: var(--green);
+}
+
+.c-amber {
+  --sk: var(--amber);
+}
+
+.c-red {
+  --sk: var(--coral);
+}
+
+.c-violet {
+  --sk: var(--tint-violet);
+}
+
+.c-teal {
+  --sk: var(--tint-teal);
+}
+
+.icon.sk,
+.icon-btn .icon.sk,
+.icon-btn:hover .icon.sk {
+  color: var(--sk, var(--muted));
+}
+
 .icon-btn[aria-disabled='true'] {
   cursor: default;
   opacity: 0.55;

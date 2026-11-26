@@ -1,6 +1,6 @@
 import { canFirstFit, statusOf } from '/shared/popout.js'
 import { fitMap, hexagonPoints, mapParts } from '/shared/map.js'
-import { clampZoom, easeOut, focusPan, minimapView, safeArea, tweenCamera, zoomAround, zoomLimits } from '/shared/camera.js'
+import { clampZoom, easeOut, focusPan, minimapView, safeArea, shouldRefitOnResize, tweenCamera, zoomAround, zoomLimits } from '/shared/camera.js'
 import { $, applyPhase, SETTLE_MS, state, view, visibleSessions, WANTS_METRICS } from './page-state.js'
 import { emptyText, noSnapshotText, stateBlock } from './rail.js'
 import { hideCard } from './card.js'
@@ -249,10 +249,9 @@ export function renderMap() {
   const aspect = box.width > 0 && box.height > 0 ? box.width / box.height : 1.6
   if (!state.camera && !canFirstFit(state.camera, box)) return
   const isResized = state.stageW > 0 && box.width > 0 && (Math.abs(box.width - state.stageW) > 0.5 || Math.abs(box.height - state.stageH) > 0.5)
-  let isRefit = false
-  if (state.camera && isResized && !state.isMoved && !state.cameraTarget) {
+  const windowSize = { w: window.innerWidth, h: window.innerHeight }
+  if (state.camera && isResized && !state.cameraTarget && shouldRefitOnResize({ w: state.windowW, h: state.windowH }, windowSize, state.isMoved)) {
     fitCamera()
-    isRefit = true
   } else if (state.camera && state.stageW > 0 && box.width > 0 && (isResized || Math.abs(box.left - state.stageLeft) > 0.5)) {
     const perPx = state.camera.w / state.stageW
     state.camera = { ...state.camera, x: state.camera.x + (box.left - state.stageLeft) * perPx, w: box.width * perPx }
@@ -261,6 +260,8 @@ export function renderMap() {
     state.stageW = box.width
     state.stageH = box.height
     state.stageLeft = box.left
+    state.windowW = windowSize.w
+    state.windowH = windowSize.h
   }
   if (!state.camera) fitCamera()
   else if (Math.abs(state.camera.w / state.camera.h - aspect) > 0.01) {
@@ -302,7 +303,7 @@ export function renderMap() {
   renderMinimap()
   applyPhase('map.minimap', minimapStart)
   state.labels = parts.labels
-  if (isRefit && state.selected) focusSelected()
+  if (isResized && state.selected) focusSelected()
 }
 
 let frame = 0

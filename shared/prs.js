@@ -1,24 +1,31 @@
 // @ts-check
 
+export { isPrUrl } from './pr-links.js'
+
 /** @typedef {import('../types').PrStatus} PrStatus */
 
-const PR_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/
-const PR_FIELDS = 'number,state,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus'
+const PR_FIELDS = 'number,title,state,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus'
 const PR_FAILING_NAMES = 5
+const PR_TITLE_MAX = 200
+
+/**
+ * A PR title as plain one-line text: control and direction-override
+ * characters dropped, spaces collapsed, at most 200 characters; null when empty.
+ * @param {unknown} title
+ * @returns {string | null}
+ */
+function cleanTitle(title) {
+  if (typeof title !== 'string') return null
+  const text = title
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text ? text.slice(0, PR_TITLE_MAX) : null
+}
 
 const FAILING = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'error'])
 const PENDING = new Set(['queued', 'in_progress', 'pending', 'expected', 'waiting', 'requested'])
 const PASSING = new Set(['success', 'neutral', 'skipped'])
-
-/**
- * Whether `url` is a plain GitHub pull request link, the only form that may
- * reach `gh` (no query, fragment, credentials or other host).
- * @param {unknown} url
- * @returns {url is string}
- */
-export function isPrUrl(url) {
-  return typeof url === 'string' && url.length <= 300 && PR_URL.test(url) && !/\/\.{1,2}\//.test(url)
-}
 
 /**
  * The `gh pr view` argv for one PR (no shell; the URL is checked first).
@@ -65,8 +72,8 @@ export function latestChecks(rollup) {
 }
 
 /**
- * `gh pr view --json number,state,isDraft,reviewDecision,statusCheckRollup,...`
- * output reduced to what Orbit shows: state, one checks verdict (any failing
+ * `gh pr view --json number,title,state,isDraft,reviewDecision,statusCheckRollup,...`
+ * output reduced to what Orbit shows: state, the title, one checks verdict (any failing
  * wins, then pending, then passing), up to five failing check names, and the
  * review decision.
  * @param {any} raw
@@ -94,6 +101,7 @@ export function prSummary(raw, now) {
   const decision = typeof raw.reviewDecision === 'string' ? raw.reviewDecision.toUpperCase() : ''
   return {
     state,
+    title: cleanTitle(raw.title),
     checks: failing.length ? 'failing' : isPending ? 'pending' : isPassing ? 'passing' : 'none',
     failing: failing.slice(0, PR_FAILING_NAMES),
     review: decision === 'APPROVED' ? 'approved' : decision === 'CHANGES_REQUESTED' ? 'changes' : decision === 'REVIEW_REQUIRED' ? 'required' : null,

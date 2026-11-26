@@ -463,6 +463,13 @@ try {
     assert.equal(healed.status, 200, 'a prefs file broken for a while is backed up and rewritten, not refused for ever (E-77)')
     assert.equal(fs.readFileSync(`${prefsFile}.bad`, 'utf8'), '{"schema":1,"pinned":["loc')
     assert.equal(JSON.parse(fs.readFileSync(prefsFile, 'utf8')).settings.refreshSec, 20)
+    const shelf = { groups: [{ id: 'toolbox', name: 'Toolbox', items: [{ command: '/agent-toolbox:tb-code-review', label: 'Review', template: 'Focus on' }, { command: 'config', label: 'denied' }] }] }
+    assert.equal((await call('POST', '/api/prefs', { skillShelf: shelf })).status, 200)
+    assert.deepEqual(JSON.parse(fs.readFileSync(prefsFile, 'utf8')).skillShelf, { groups: [{ id: 'toolbox', name: 'Toolbox', items: [{ command: 'agent-toolbox:tb-code-review', label: 'Review', template: 'Focus on' }] }] }, 'the shelf is stored cleaned: slash dropped, denied commands out')
+    assert.equal((await call('POST', '/api/prefs', { settings: { refreshSec: 30 } })).status, 200)
+    assert.equal(JSON.parse(fs.readFileSync(prefsFile, 'utf8')).skillShelf.groups.length, 1, 'other patches keep the shelf')
+    assert.equal((await call('POST', '/api/prefs', { skillShelf: { groups: [] } })).status, 200)
+    assert.deepEqual(JSON.parse(fs.readFileSync(prefsFile, 'utf8')).skillShelf, { groups: [] }, 'a shelf patch replaces the whole shelf')
   })
 
   await step('inbox page and its modules', async () => {
@@ -736,7 +743,7 @@ try {
     assert.deepEqual(prState.checks, { state: 'unavailable', reason: 'not signed in' })
     const ghCalls = JSON.parse((await call('GET', '/api/dry-run')).text).gh
     assert.deepEqual(ghCalls.map(c => c[3]).sort(), [PR_OK, PR_NONE, PR_AUTH].sort(), 'only checked PR links reach gh, once each')
-    assert.deepEqual([...ghCalls[0].slice(0, 3), ...ghCalls[0].slice(4)], ['gh', 'pr', 'view', '--json', 'number,state,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus'])
+    assert.deepEqual([...ghCalls[0].slice(0, 3), ...ghCalls[0].slice(4)], ['gh', 'pr', 'view', '--json', 'number,title,state,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus'])
     await waitFor(() => companionInfo()?.prChecks?.state === 'unavailable', 3_000)
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(data, 'companion.json'), 'utf8')).prChecks, { state: 'unavailable', reason: 'not signed in' })
   })
@@ -1073,6 +1080,16 @@ try {
     for (const bad of [{ ...good, model: 'gpt-5' }, { ...good, mode: 'default' }, { ...good, mode: 'bypassPermissions' }, { ...good, folder: 'C:\\a;b' }, { ...good, prompt: '/clear' }, { ...good, digest: undefined }]) {
       assert.equal((await launch(bad)).status, 400, JSON.stringify({ ...bad, prompt: undefined }))
     }
+    assert.equal((await call('POST', '/api/prefs', { skillShelf: { groups: [{ id: 'tb', name: 'Toolbox', items: [{ command: 'agent-toolbox:tb-grill' }] }] } })).status, 200)
+    const notShelved = await launch({ ...good, prompt: '/agent-toolbox:tb-notes take notes' })
+    assert.deepEqual([notShelved.status, /isn’t in your Skills/.test(JSON.parse(notShelved.text).error)], [400, true], 'a skill not on the shelf is refused')
+    const denied = await launch({ ...good, prompt: '/config' })
+    assert.deepEqual([denied.status, /never runs it/.test(JSON.parse(denied.text).error)], [400, true], 'a denied command is refused even if typed')
+    const shelved = await launch({ ...good, prompt: '/agent-toolbox:tb-grill grill the plan', digest: 'e'.repeat(64) })
+    assert.equal(shelved.status, 409, 'a shelf skill passes the prompt check and reaches the folder check')
+    const withPr = await launch({ ...good, prompt: '/agent-toolbox:tb-grill grill the plan https://github.com/acme/app/pull/42', digest: 'e'.repeat(64) })
+    assert.equal(withPr.status, 409, 'a shelf skill with a PR link appended passes the prompt check')
+    assert.equal((await call('POST', '/api/prefs', { skillShelf: { groups: [] } })).status, 200)
     assert.equal((await launch({ ...good, digest: 'e'.repeat(64) })).status, 409, 'a folder other than the one checked is refused')
     assert.equal((await call('POST', '/api/arm', { capability: 'replies', armed: false })).status, 200)
     for (const needsReplies of [good, { ...good, prompt: '', mode: 'bypassPermissions', confirmBypass: true }]) {
@@ -1139,7 +1156,7 @@ try {
     assert.equal(JSON.parse(older.text).older, true)
     assert.equal(fs.existsSync(path.join(data, 'inbox', '0a1b2c3d-0000-4000-8000-0000000000ff')), false)
 
-    for (const text of [`${ch(0x200b)}/clear`, '!echo hi', '＃remember', '∕clear']) {
+    for (const text of [`${ch(0x200b)}/clear`, '!echo hi', '！echo hi', '∕clear']) {
       const command = await reply({ sessionKey: REPLY_KEY, text })
       assert.equal(command.status, 400, text)
       assert.equal(JSON.parse(command.text).reason, 'command')
@@ -1224,6 +1241,11 @@ try {
     assert.equal((await publish({ commands: 'nope' })).status, 400)
     assert.equal((await publish({ commands: [{ name: 'compact', description: 'Summarise', source: 'builtin' }, { name: 'config', description: 'x', source: 'builtin' }] })).status, 200)
     assert.deepEqual(await listed(), { known: true, commands: [{ name: 'compact', description: 'Summarise', source: 'builtin' }] })
+    assert.equal((await publish({ commands: [{ name: 'compact', description: 'Summarise', source: 'builtin' }, { name: 'agent-toolbox:tb-lean', description: 'Lean', source: 'plugin', plugin: 'agent-toolbox' }, { name: 'config', description: 'x', source: 'builtin' }] })).status, 200)
+    const catalog = JSON.parse((await call('GET', '/api/commands/catalog')).text)
+    assert.deepEqual(catalog.commands.find(c => c.name === 'agent-toolbox:tb-lean'), { name: 'agent-toolbox:tb-lean', description: 'Lean', source: 'plugin', plugin: 'agent-toolbox', sessions: 1 }, 'the catalog carries a plugin skill with its plugin')
+    assert.equal(catalog.commands.some(c => c.name === 'config'), false, 'the catalog never offers a deny-listed command')
+    assert.equal((await raw(info.port, { method: 'GET', path: '/api/commands/catalog', headers: control })).status, 403, 'the catalog is a page route, not a mod one')
     assert.equal((await call('POST', '/api/arm', { capability: 'replies', armed: true })).status, 200)
     const denied = await call('POST', '/api/reply', { sessionKey: REPLY_KEY, text: '/config' })
     assert.deepEqual([denied.status, JSON.parse(denied.text).reason], [400, 'command'])

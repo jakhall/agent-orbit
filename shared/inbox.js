@@ -22,7 +22,7 @@ export const SUBMIT_SETTLE_MS = 1_000
 const FUTURE_SLACK_MS = 5_000
 const INVISIBLE_START = /^[\p{Cc}\p{Cf}\p{Z}]+/u
 const INVISIBLE_END = /[\p{Cc}\p{Cf}\p{Z}]+$/u
-const COMMAND_START = /^[/!#⁄∕╱⟋⧸]/
+const COMMAND_START = /^[/!⁄∕╱⟋⧸]/
 const COMMAND_LINE = /^\/([A-Za-z0-9][A-Za-z0-9:_-]{0,63})(?:\s+([\s\S]*))?$/
 
 /**
@@ -110,7 +110,7 @@ export function parseCommand(body) {
 export const REFUSAL_TEXT = {
   empty: 'it was empty',
   long: `it was over ${MAX_MESSAGE_CHARS} characters`,
-  command: 'it started with /, ! or # and was not a command Orbit may run',
+  command: 'it started with / or ! and was not a command Orbit may run',
   stale: 'it expired after a minute',
   future: 'it was dated in the future',
   replay: 'it was already handled',
@@ -143,9 +143,9 @@ export function isDelivered(status) {
  * The text a reply may carry, or why it is refused. Leading and trailing
  * control, format and space characters are stripped (that is the text sent);
  * it is refused when empty, over `MAX_MESSAGE_CHARS`, or when it starts, once
- * NFKC-normalised, with `/`, `!` or `#` or a slash look-alike: a submitted
- * prompt is the same call as a typed one, so those would run a slash command,
- * a shell command or a memory shortcut. The one exception is a slash command
+ * NFKC-normalised, with `/` or `!` or a slash look-alike: a submitted
+ * prompt is the same call as a typed one, so those would run a slash command
+ * or a shell command. A leading `#` is sent as text (Jak, 2026-11-26). The one exception is a slash command
  * the session itself listed (`commands`, names without the slash) and
  * `isCommandAllowed` passes, written with a plain `/`: it comes back as
  * `command`, to be run, never submitted as a prompt. The server, the mod and
@@ -172,7 +172,8 @@ export function checkReplyText(text, commands = null) {
  * @returns {string}
  */
 function commandRefusal(command, commands) {
-  if (!command || !commands) return 'Orbit sends a slash command only when the session lists it; ! and # never: open the session for those.'
+  if (!command) return 'Messages can’t start with ! or an unknown /.'
+  if (!commands) return 'This session hasn’t shared its commands yet.'
   if (!isCommandAllowed(command.name)) return `/${command.name} changes settings or access, so Orbit never runs it: open the session for it.`
   return `/${command.name} is not a command this session has.`
 }

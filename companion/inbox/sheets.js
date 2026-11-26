@@ -5,7 +5,12 @@ import { desktopOutcome, LAUNCH_EFFORTS, LAUNCH_MODELS, LAUNCH_MODES, launchForm
 import { handOffLink, recentFolders } from '/shared/links.js'
 import { armSetupLine, auditText, draftOf, isNoWindow, modelOptions, NO_WINDOW_TEXT, paletteResults, switcherResults, switcherRowMeta, switcherStatus } from '/shared/popout.js'
 import { $, api, el, state as chat } from './ctx.js'
-import { icon } from './icons.js'
+import { icon, skillIcon } from './icons.js'
+import { shelfSection, syncShelf } from './shelf-editor.js'
+import { prPicker } from './pr-picker.js'
+import { skillSelect } from './skill-select.js'
+import { skillLine } from '/shared/skills.js'
+import { prChoices } from '/shared/pr-links.js'
 import { askPermission, isSoundOn, permission, setSound } from './notify.js'
 
 /**
@@ -68,7 +73,7 @@ function check(id, label, attrs = {}) {
   return { input, row: el('label', { class: 'cx-check' }, input, el('span', {}, label)) }
 }
 
-function dialogHead(titleId, title, dialog) {
+export function dialogHead(titleId, title, dialog) {
   return el(
     'header',
     { class: 'cx-dialog-head' },
@@ -78,7 +83,7 @@ function dialogHead(titleId, title, dialog) {
 }
 
 /** Opens `dialog` as a modal and gives focus back to whatever had it when the dialog closes (else to `fallback`). */
-function openDialog(dialog, focus, fallback = 'cx-stage') {
+export function openDialog(dialog, focus, fallback = 'cx-stage') {
   if (dialog.open) return focus?.focus()
   const back = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
   const home = () => (fallback === 'cx-stage' && $('cx-stage')?.hidden ? $('cx-convo') : $(fallback))
@@ -94,8 +99,8 @@ function openDialog(dialog, focus, fallback = 'cx-stage') {
  * status line, since the page's toast sits under the modal and is out of
  * reach there; the page's toast otherwise.
  */
-function say(text, action = null) {
-  const status = document.querySelector('dialog[open] .cx-dialog-status')
+export function say(text, action = null) {
+  const status = [...document.querySelectorAll('dialog[open] .cx-dialog-status')].at(-1)
   if (!status) return page.toast(text, action)
   status.textContent = ''
   setTimeout(() => (status.textContent = text), 50)
@@ -182,6 +187,7 @@ function buildSettings() {
         el('div', { class: 'cx-row-actions' }, allow),
         permissionText,
       ),
+      shelfSection({ prefs: () => page.prefs(), patchPrefs: patch => page.patchPrefs(patch) }),
       el(
         'section',
         { 'aria-labelledby': 'cx-s-all' },
@@ -237,6 +243,7 @@ function syncSettings() {
   p.animation.value = s.animation
   p.paused.checked = s.paused === true
   p.resetLayout.hidden = Object.keys(prefs?.positions ?? {}).length === 0
+  syncShelf()
   const limits = page.limits()
   p.usage.replaceChildren(
     ...(limits
@@ -256,6 +263,7 @@ export function openSettings(focusId = null) {
 export function refreshSettings() {
   if (settingsParts.dialog?.open) syncSettings()
   if (newParts.dialog?.open) renderNew()
+  syncShelf()
 }
 
 async function setArm(capability, armed) {
@@ -373,6 +381,30 @@ function buildNew() {
   const mode = select('cx-n-mode', LAUNCH_MODES, LAUNCH_MODES.some(o => o.value === saved.mode) && saved.mode !== 'bypassPermissions' ? saved.mode : '')
   const bypass = check('cx-n-bypass', 'I understand: this session will run tools without asking.')
   const prompt = el('textarea', { id: 'cx-n-prompt', rows: 3, maxlength: 4000 })
+  const skill = skillSelect({
+    id: 'cx-n-skill',
+    onChange: () => {
+      const template = shelfItem(skill.value)?.template
+      if (template && prompt.value.trim() === '') prompt.value = template
+      renderNew()
+    },
+  })
+  skill.button.setAttribute('aria-labelledby', 'cx-n-skill-label cx-n-skill')
+  skill.list.setAttribute('aria-labelledby', 'cx-n-skill-label')
+  const skillRow = el('div', { class: 'cx-n-skill' }, el('div', { class: 'cx-field' }, el('span', { id: 'cx-n-skill-label' }, 'Skill (optional)'), skill.button), skill.list)
+  const pr = prPicker({
+    id: 'cx-n-pr',
+    groups: { own: 'This session', other: 'This folder’s repository' },
+    onChange: () => {
+      showNewPrError(null)
+      renderNew()
+    },
+    onEnter: () => void startNew(),
+  })
+  pr.input.setAttribute('aria-describedby', 'cx-n-pr-error')
+  const prError = el('p', { class: 'err cx-field-error', id: 'cx-n-pr-error', hidden: true })
+  const prRow = pr.row(prError)
+  prRow.hidden = true
   const start = el('button', { class: 'primary', id: 'cx-n-start', 'aria-describedby': 'cx-n-status cx-n-folder-error' }, 'Start')
   const status = el('p', { class: 'cx-hint', id: 'cx-n-status', role: 'status' })
   const turnOnReplies = el('button', { class: 'small', type: 'button', id: 'cx-n-arm', hidden: true, onclick: () => openSettings('cx-s-arm-replies') }, 'Turn on replies')
@@ -393,7 +425,10 @@ function buildNew() {
   }
   bypass.input.addEventListener('change', renderNew)
   prompt.addEventListener('input', renderNew)
-  folderInput.addEventListener('input', () => checkFolder(false))
+  folderInput.addEventListener('input', () => {
+    checkFolder(false)
+    fillNewPrs()
+  })
   folderInput.addEventListener('keydown', event => event.key === 'Enter' && (event.preventDefault(), void startNew()))
   prompt.addEventListener('keydown', event => event.key === 'Enter' && (event.ctrlKey || event.metaKey) && (event.preventDefault(), void startNew()))
   start.addEventListener('click', () => void startNew())
@@ -408,11 +443,55 @@ function buildNew() {
       el('p', { class: 'cx-hint', id: 'cx-n-folder-hint' }, 'Type a path, or pick a recent folder from the list (Alt+Down).'),
       el('label', { class: 'cx-field' }, el('span', {}, 'Where'), where),
       orbitOnly,
+      skillRow,
       el('label', { class: 'cx-field cx-wide' }, el('span', {}, 'First prompt (optional)'), prompt),
+      prRow,
       el('div', { class: 'cx-row-actions' }, start, status, turnOnReplies),
     ),
   )
-  Object.assign(newParts, { dialog, folderInput, folderError, recent, where, model, effort, mode, bypass: bypass.input, bypassRow: bypass.row, prompt, start, status, orbitOnly, turnOnReplies })
+  Object.assign(newParts, { dialog, folderInput, folderError, recent, where, model, effort, mode, bypass: bypass.input, bypassRow: bypass.row, prompt, skill, skillRow, hasSkills: false, pr, prError, prRow, start, status, orbitOnly, turnOnReplies })
+}
+
+function fillNewPrs() {
+  const p = newParts
+  const folder = p.folderInput.value.trim()
+  if (p.prsFolder === folder) return
+  p.prsFolder = folder
+  p.pr.fill(folder ? prChoices(page.snapshot(), { folder }) : [])
+}
+
+function showNewPrError(text) {
+  const p = newParts
+  p.prError.textContent = text ?? ''
+  p.prError.hidden = !text
+  p.pr.input.setAttribute('aria-invalid', text ? 'true' : 'false')
+}
+
+function isSkillLaunch() {
+  return Boolean(newParts.skill.value) && newParts.where.value === 'orbit'
+}
+
+function shelfItem(command) {
+  if (!command) return null
+  for (const group of page.prefs()?.skillShelf?.groups ?? []) {
+    const item = group.items.find(i => i.command === command)
+    if (item) return item
+  }
+  return null
+}
+
+function fillSkills() {
+  const p = newParts
+  const groups = (page.prefs()?.skillShelf?.groups ?? []).filter(g => g.items.length)
+  p.skill.fill(groups)
+  p.hasSkills = groups.length > 0
+}
+
+function firstPrompt() {
+  const p = newParts
+  if (!isSkillLaunch()) return p.prompt.value
+  const prUrl = p.pr.value
+  return (prUrl === null ? null : skillLine(p.skill.value, p.prompt.value, prUrl || null)) ?? ''
 }
 
 function checkFolder(isNow) {
@@ -448,7 +527,11 @@ function renderNew() {
   const p = newParts
   const isOrbit = p.where.value === 'orbit'
   p.orbitOnly.hidden = !isOrbit
-  const form = launchFormState({ where: isOrbit ? 'orbit' : 'desktop', folderState: folderState(), isLaunchable: launchState.folder.info ? launchState.folder.info.launchable : true, mode: p.mode.value, confirmBypass: p.bypass.checked, isBusy: launchState.isBusy, hasPrompt: p.prompt.value.trim() !== '', isRepliesArmed: page.arm()?.replies?.armed === true })
+  p.skillRow.hidden = !p.hasSkills
+  p.skill.disabled = !isOrbit
+  p.prRow.hidden = !isSkillLaunch()
+  p.skill.button.title = isOrbit ? '' : 'Skills start only from Orbit (terminal): Claude desktop turns the slash into plain text. Open the session, then apply a skill from Orbit.'
+  const form = launchFormState({ where: isOrbit ? 'orbit' : 'desktop', folderState: folderState(), isLaunchable: launchState.folder.info ? launchState.folder.info.launchable : true, mode: p.mode.value, confirmBypass: p.bypass.checked, isBusy: launchState.isBusy, hasPrompt: firstPrompt().trim() !== '', isRepliesArmed: page.arm()?.replies?.armed === true })
   p.bypassRow.hidden = !form.showBypass
   p.turnOnReplies.hidden = !form.needsReplies
   p.start.setAttribute('aria-disabled', String(!form.canStart))
@@ -473,11 +556,15 @@ export function openNewSession() {
   const folders = page.snapshot() ? recentFolders(page.snapshot(), 12) : []
   p.recent.replaceChildren(...folders.map(f => el('option', { value: f.path }, f.label)))
   launchState.isPrefilled = false
+  fillSkills()
   if (!p.folderInput.value && folders[0]) {
     p.folderInput.value = folders[0].path
     launchState.isPrefilled = true
   }
   launchState.folder = { text: '', info: null, error: null }
+  p.prsFolder = null
+  fillNewPrs()
+  showNewPrError(null)
   checkFolder(true)
   openDialog(p.dialog, p.folderInput, 'cx-new-open')
 }
@@ -485,10 +572,14 @@ export function openNewSession() {
 async function startNew() {
   const p = newParts
   if (launchState.isBusy || p.start.getAttribute('aria-disabled') === 'true') return
+  if (isSkillLaunch() && p.pr.value === null) {
+    showNewPrError('Not a GitHub pull request link.')
+    return p.pr.input.focus()
+  }
   launchState.isBusy = true
   renderNew()
   const isOrbit = p.where.value === 'orbit'
-  const body = { folder: p.folderInput.value, prompt: p.prompt.value }
+  const body = { folder: p.folderInput.value, prompt: firstPrompt() }
   p.status.textContent = isOrbit ? 'Starting…' : 'Opening Claude…'
   try {
     if (isOrbit) {
@@ -498,6 +589,8 @@ async function startNew() {
       if (p.mode.value === 'bypassPermissions') p.mode.value = ''
       p.bypass.checked = false
       p.prompt.value = ''
+      p.skill.value = ''
+      p.pr.clear()
       launchState.isBusy = false
       p.dialog.close()
       page.toast(`Starting ${nameOf(info?.real ?? body.folder)}… answer Claude in the terminal if it asks.`)
@@ -616,7 +709,7 @@ function renderPalette(isNewQuery) {
   p.list.replaceChildren(
     ...rows.map((row, i) => {
       const hover = () => p.index !== i && ((p.index = i), markActive(false))
-      if (row.kind === 'action') return el('div', { id: `cx-p-${i}`, class: 'cx-p-row is-action', role: 'option', 'aria-selected': 'false', onmousedown: e => e.preventDefault(), onmousemove: hover, onclick: () => choose(i, false) }, el('span', { class: 'cx-p-main' }, row.action.label), row.action.hotkey ? el('kbd', { class: 'key' }, row.action.hotkey) : null)
+      if (row.kind === 'action') return el('div', { id: `cx-p-${i}`, class: row.action.skill ? 'cx-p-row is-action is-skill' : 'cx-p-row is-action', role: 'option', 'aria-selected': 'false', onmousedown: e => e.preventDefault(), onmousemove: hover, onclick: () => choose(i, false) }, row.action.skill ? skillIcon(row.action.skill) : null, el('span', { class: 'cx-p-main' }, row.action.label), row.action.hotkey ? el('kbd', { class: 'key' }, row.action.hotkey) : null)
       const s = row.session
       const isHidden = isHiddenNow(s, hidden)
       const { meta, tag } = switcherRowMeta(s, projectName(s), now, { isHidden, isListed: listed.has(s.key) })

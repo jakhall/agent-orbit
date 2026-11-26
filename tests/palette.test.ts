@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { keyAction, paletteResults } from '../shared/popout.js'
+import { keyAction, PALETTE_SKILLS_MAX, paletteResults } from '../shared/popout.js'
 
 const ACTIONS = [
   { id: 'new-session', label: 'New session' },
@@ -38,4 +38,16 @@ test('C9 review #1-2: a session action matches only on its verb, ranks after ses
   expect(ids('', SESSIONS)).toEqual(['cli:a', 'cli:b', 'new-session', 'settings', 'fit', 'done', 'snooze-hour'])
   const done = paletteResults('done', [], actions)[0]
   expect(done?.kind === 'action' ? done.action.key : null).toBe('cli:a')
+})
+
+test('shelf skills join the palette only for a query, after the session actions, by word starts and capped', () => {
+  const skill = (n: number, label: string) => ({ id: `skill:s${n}`, label: `Apply ${label}: billing`, verb: `Apply ${label}`, key: 'cli:a', search: `apply ${label} /s${n} toolbox`.toLowerCase() })
+  const actions = [...ACTIONS, { id: 'done', label: 'Done: billing', verb: 'Done', key: 'cli:a' }, skill(1, 'Code review'), skill(2, 'Grill me')]
+  expect(paletteResults('', SESSIONS, actions).some(i => i.kind === 'action' && i.action.id.startsWith('skill:'))).toBe(false)
+  expect(paletteResults('code rev', [], actions).map(i => (i.kind === 'action' ? i.action.id : null))).toEqual(['skill:s1'])
+  expect(paletteResults('tool', [], actions).map(i => (i.kind === 'action' ? i.action.id : null))).toEqual(['skill:s1', 'skill:s2'])
+  expect(paletteResults('s1', [], actions).map(i => (i.kind === 'action' ? i.action.id : null))).toEqual(['skill:s1'])
+  expect(paletteResults('d', [], actions).map(i => (i.kind === 'action' ? i.action.id : null))).toEqual(['done'])
+  const many = Array.from({ length: PALETTE_SKILLS_MAX + 3 }, (_, n) => skill(n, `Skill ${n}`))
+  expect(paletteResults('apply', [], many)).toHaveLength(PALETTE_SKILLS_MAX)
 })

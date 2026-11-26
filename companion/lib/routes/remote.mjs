@@ -41,6 +41,7 @@ export async function remoteRoutes(c, req, res, url, route) {
     const result = await sessionCommands(url.searchParams.get('sessionKey'))
     return send(res, result.status, result.body)
   }
+  if (req.method === 'GET' && route === '/api/commands/catalog') return send(res, 200, { commands: commandStore?.catalog() ?? [] })
   const modStop = /^\/api\/mod\/stops\/([0-9a-f-]{36})\/(claim|ack)$/i.exec(route)
   if (modStop && req.method === 'POST') {
     const body = await readBody(req)

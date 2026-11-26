@@ -269,6 +269,19 @@ test('the session publishes the commands Orbit may run, deny-listed ones left ou
   expect(acks[0]).toMatchObject({ id: ID, status: 'sent' })
 })
 
+test('a plugin skill is published with its plugin name; other sources never carry one', async ($, on) => {
+  const commands = [
+    { name: 'agent-toolbox:tb-lean', description: 'Lean', source: 'plugin', plugin: 'agent-toolbox' },
+    { name: 'ab-grilling', description: 'Grill', source: 'user', plugin: 'stray' },
+  ]
+  const { clock, published } = replyHost(on, [], { commands })
+  await $.session.start({ cwd: 'C:\\repo', surface: 'desktop', isInteractive: false })
+  await runFor(clock, 10_000)
+  const sent = published[0] as unknown as { name: string; plugin?: string }[]
+  expect(sent.find(c => c.name === 'agent-toolbox:tb-lean')?.plugin).toBe('agent-toolbox')
+  expect(sent.find(c => c.name === 'ab-grilling')?.plugin).toBeUndefined()
+})
+
 test('a desktop session that hides /remote-control from its list still publishes it, so the switch can press it', async ($, on) => {
   const { clock, published } = replyHost(on, [], { commands: COMMANDS.filter(c => c.name !== 'remote-control') })
   await $.session.start({ cwd: 'C:\\repo', surface: 'desktop', isInteractive: false })

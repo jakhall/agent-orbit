@@ -63,27 +63,14 @@ function ringRadius(ring) {
 }
 
 /**
- * Dragged hubs exactly where they were dropped: the person decides, so two
- * dragged clusters may overlap. Only computed slots keep clear of them.
- * @param {Cluster[]} clusters in layout order
- * @param {Record<string, Offset>} positions
- * @returns {{ id: string, x: number, y: number, radius: number }[]}
- */
-function draggedHubs(clusters, positions) {
-  return clusters.flatMap(cluster => {
-    const at = positions[`p:${cluster.project.id}`]
-    return at ? [{ id: cluster.project.id, x: at.dx, y: at.dy, radius: cluster.radius }] : []
-  })
-}
-
-/**
  * Deterministic placement: project clusters packed in rows in order of their
  * oldest session, sessions on rings around their project in hashed slots
  * (probing to the next free slot), subagents on an arc of spokes facing away from the hub,
  * and a lineage edge from each session's parent session when both are shown.
  * Positions depend on identity and age, never on status. A dragged node's
  * offset from its parent, from prefs, replaces the computed one; a dragged
- * hub stays where it was dropped and computed slots skip the clusters it covers. With
+ * hub stays where it was dropped and keeps its grid slot, so no other cluster
+ * moves, and it may overlap another (Reposition tidies up). With
  * `pack` (2.1), those projects take the first grid slots, sized as if they
  * were the only ones, and the rest follow, so the map fits what is shown.
  * @param {LayoutInput} input
@@ -155,29 +142,18 @@ export function layoutGraph(input, positions, options = {}) {
   let cursorX = 0
   let cursorY = 0
   let rowHeight = 0
-  const dragged = draggedHubs(clusters, positions)
   for (const cluster of clusters) {
     const width = 2 * cluster.radius + labelRoom
-    const pinnedAt = dragged.find(d => d.id === cluster.project.id)
-    if (pinnedAt) {
-      centres.push({ x: pinnedAt.x, y: pinnedAt.y })
-      continue
+    if (cursorX > 0 && cursorX + width > rowWidth) {
+      cursorX = 0
+      cursorY += rowHeight + gap
+      rowHeight = 0
     }
-    for (let tries = 0; ; tries += 1) {
-      if (cursorX > 0 && cursorX + width > rowWidth) {
-        cursorX = 0
-        cursorY += rowHeight + gap
-        rowHeight = 0
-      }
-      const centre = { x: cursorX + cluster.radius + labelRoom / 2, y: cursorY + cluster.radius }
-      cursorX += width + gap
-      rowHeight = Math.max(rowHeight, 2 * cluster.radius)
-      const isFree = tries >= 50 || dragged.every(d => Math.hypot(d.x - centre.x, d.y - centre.y) >= d.radius + cluster.radius)
-      if (isFree) {
-        centres.push(centre)
-        break
-      }
-    }
+    const slot = { x: cursorX + cluster.radius + labelRoom / 2, y: cursorY + cluster.radius }
+    cursorX += width + gap
+    rowHeight = Math.max(rowHeight, 2 * cluster.radius)
+    const pinnedAt = positions[`p:${cluster.project.id}`]
+    centres.push(pinnedAt ? { x: pinnedAt.dx, y: pinnedAt.dy } : slot)
   }
 
   clusters.forEach((cluster, index) => {

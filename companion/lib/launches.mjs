@@ -3,9 +3,9 @@ import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { checkReplyText } from '../../shared/inbox.js'
 import { checkLaunch, FIRST_PROMPT_WAIT_MS, isAnthropicSigned, isRunnable, LAUNCH_AGAIN_MS, LAUNCH_NEEDS_REPLIES, launchArgv, launchEnv, launchFolder, launchModels, launchNeedsReplies, newestClaude } from '../../shared/launch.js'
 import { normalizeFolder } from '../../shared/links.js'
+import { checkLaunchPrompt, sanitizeSkillShelf } from '../../shared/skills.js'
 import { REPLY_PROTOCOL } from './replies.mjs'
 import { isRepliesArmed, replyQueue, replyResult } from './reply-api.mjs'
 import { SYSTEM32, opts, DATA, FILES, log, readJson, isFolder, childEnv, readSnapshotForApi } from './runtime.mjs'
@@ -215,8 +215,8 @@ async function launchChecked(body) {
   const checked = checkLaunch(body, launchModels(await seenModels()))
   if (!checked.ok) return { status: 400, body: { error: checked.error } }
   if (checked.prompt) {
-    const prompt = checkReplyText(checked.prompt)
-    if (!prompt.ok) return { status: 400, body: { error: prompt.reason === 'command' ? 'A first prompt from Orbit cannot start with / ! or #; type it in the new session instead.' : prompt.error } }
+    const prompt = checkLaunchPrompt(checked.prompt, sanitizeSkillShelf(readJson(FILES.prefs)?.skillShelf))
+    if (!prompt.ok) return { status: 400, body: { error: prompt.error } }
   }
   if (launchNeedsReplies(checked) && !isRepliesArmed()) return { status: 409, body: { error: LAUNCH_NEEDS_REPLIES, reason: 'not-armed' } }
   const review = await checkFolder(checked.folder)

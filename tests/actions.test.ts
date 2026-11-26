@@ -12,6 +12,7 @@ test('C6: one key map, one meaning per key', () => {
   expect(keyAction({ key: 'n' })).toBe('next-needs-you')
   expect(keyAction({ key: 'N', shiftKey: true })).toBe('previous-needs-you')
   expect(keyAction({ key: 'd' })).toBe('done')
+  expect(keyAction({ key: 'a' })).toBe('apply-skill')
   expect(keyAction({ key: 'S', shiftKey: true })).toBe('snooze-tomorrow')
   expect(keyAction({ key: 'ArrowLeft' })).toBe('move-left')
   expect(keyAction({ key: 'ArrowLeft', shiftKey: true })).toBe('pan-left')

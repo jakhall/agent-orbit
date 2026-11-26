@@ -2,6 +2,7 @@
 
 import { DEFAULT_FILTERS, DEFAULT_SETTINGS, MAX_HIDDEN, MAX_PINNED, SESSION_TINTS, TIME_PRESETS, TITLE_MAX } from './constants.js'
 import { cleanHidden } from './filters.js'
+import { sanitizeSkillShelf } from './skills.js'
 
 /** @typedef {import('../types').Prefs} Prefs */
 /** @typedef {import('../types').Settings} Settings */
@@ -133,6 +134,7 @@ export function sanitizePrefs(raw) {
     hidden: cleanHidden(p.hidden, MAX_HIDDEN),
     projectOverrides: cleanOverrides(p.projectOverrides),
     titles: cleanTitles(p.titles),
+    skillShelf: sanitizeSkillShelf(p.skillShelf),
     tints: cleanTints(p.tints, true),
     projectTints: cleanTints(p.projectTints, false),
     done: cleanDone(p.done),

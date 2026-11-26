@@ -39,3 +39,31 @@ test('a list older than ten minutes reads as gone, and at most 200 sessions are 
   assert.equal(store.listFor('cli-0'), null)
   assert.deepEqual(store.listFor('cli-200'), [])
 })
+
+test('a plugin command keeps its plugin name when it is a plain name; other sources never carry one', () => {
+  const store = createCommandStore({ now: () => NOW })
+  store.set('cli-1', { commands: [
+    { name: 'agent-toolbox:tb-lean', description: 'Lean', source: 'plugin', plugin: 'agent-toolbox' },
+    { name: 'odd', source: 'plugin', plugin: '../escape' },
+    { name: 'mine', source: 'user', plugin: 'agent-toolbox' },
+  ] })
+  assert.deepEqual(store.listFor('cli-1'), [
+    { name: 'agent-toolbox:tb-lean', description: 'Lean', source: 'plugin', plugin: 'agent-toolbox' },
+    { name: 'odd', description: '', source: 'plugin' },
+    { name: 'mine', description: '', source: 'user' },
+  ])
+})
+
+test('the catalog lists every fresh session\'s commands once, newest description first, with how many sessions list each', () => {
+  let now = NOW
+  const store = createCommandStore({ now: () => now })
+  store.set('cli-gone', { commands: [{ name: 'gone', source: 'user' }] })
+  now += 10 * 60_000 + 1
+  store.set('cli-1', { commands: [{ name: 'review', description: 'old', source: 'user' }, { name: 'compact', source: 'builtin' }] })
+  store.set('cli-2', { commands: [{ name: 'review', description: 'new', source: 'user' }] })
+  assert.deepEqual(store.catalog(), [
+    { name: 'compact', description: '', source: 'builtin', sessions: 1 },
+    { name: 'review', description: 'new', source: 'user', sessions: 2 },
+  ])
+  assert.deepEqual(createCommandStore().catalog(), [])
+})

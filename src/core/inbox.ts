@@ -241,7 +241,8 @@ function runCommand($: EngineInterface, command: Command): Promise<PromptSubmitR
 
 /**
  * Tells the server which slash commands Orbit may run in this session: the
- * session's own list minus the deny-list, names and short descriptions only.
+ * session's own list minus the deny-list, names, short descriptions, sources
+ * and the providing plugin's name only.
  * Refreshed every minute while the server is live.
  */
 async function publishCommands($: EngineInterface, server: Server, now: number): Promise<void> {
@@ -252,8 +253,12 @@ async function publishCommands($: EngineInterface, server: Server, now: number):
   const allowed = publishableCommands(listed)
   inbox.commands = new Set(allowed.map(c => c.name))
   await serverCall($, server, 'POST', `/api/mod/commands/${inbox.me}`, {
-    commands: allowed.map(c => ({ name: c.name, description: String(c.description ?? '').slice(0, 120), source: c.source })),
+    commands: allowed.map(c => ({ name: c.name, description: String(c.description ?? '').slice(0, 120), source: c.source, ...pluginOf(c) })),
   })
+}
+
+function pluginOf(c: { source?: string; plugin?: unknown }): { plugin?: string } {
+  return c.source === 'plugin' && typeof c.plugin === 'string' && c.plugin !== '' ? { plugin: c.plugin.slice(0, 64) } : {}
 }
 
 function settle($: EngineInterface, submitting: Promise<PromptSubmitResult>): Promise<Outcome> {

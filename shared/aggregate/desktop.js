@@ -42,7 +42,7 @@ import { errorText, joinWith } from './path-utils.js'
 /** @typedef {{ text: string, needsUser: boolean, ask: string | null, at: number | null }} SessionReport */
 /** @typedef {{ category: string, at: number, source: 'error' | 'crash' | 'mark', isCurrent: boolean }} SessionFailure */
 
-/** @typedef {{ prNumber?: unknown, repo?: unknown, url?: unknown, branch?: unknown, state?: unknown }} RawPr */
+/** @typedef {{ prNumber?: unknown, repo?: unknown, url?: unknown, branch?: unknown, state?: unknown, dismissed?: unknown }} RawPr */
 
 /**
  * @typedef {object} RawSession
@@ -114,7 +114,7 @@ function parsePrs(value) {
     const url = str(raw?.url)
     const number = num(raw?.prNumber)
     if (!url || number === null || !isPrUrl(url)) continue
-    out.push({ url, number, repo: str(raw.repo) ?? '', branch: str(raw.branch), state: str(raw.state) ?? 'UNKNOWN' })
+    out.push({ url, number, repo: str(raw.repo) ?? '', branch: str(raw.branch), state: str(raw.state) ?? 'UNKNOWN', ...(raw.dismissed === true ? { dismissed: true } : {}) })
   }
   return out
 }

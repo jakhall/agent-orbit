@@ -17,13 +17,14 @@ test('a reply that is a slash command splits into its name and its arguments; an
   expect([parseCommand('use a/b paths'), parseCommand('/'), parseCommand('!ls'), parseCommand('# note')]).toEqual([null, null, null, null])
 })
 
-test('Orbit runs a slash command only when the session lists it and it is not on the deny-list; ! and # never', () => {
+test('Orbit runs a slash command only when the session lists it and it is not on the deny-list; ! never; a leading # is plain text', () => {
   expect(checkReplyText('/compact keep the plan', LISTED)).toEqual({ ok: true, text: '/compact keep the plan', command: { name: 'compact', args: 'keep the plan' } })
   expect(checkReplyText('/config', LISTED)).toMatchObject({ ok: false, reason: 'command' })
   expect(checkReplyText('/made-up', LISTED)).toMatchObject({ ok: false, reason: 'command', error: '/made-up is not a command this session has.' })
   expect(checkReplyText('/compact', null)).toMatchObject({ ok: false, reason: 'command' })
   expect(checkReplyText('!ls', LISTED)).toMatchObject({ ok: false, reason: 'command' })
-  expect(checkReplyText('# remember this', LISTED)).toMatchObject({ ok: false, reason: 'command' })
+  expect(checkReplyText('!ls', LISTED)).toMatchObject({ error: 'Messages can’t start with ! or an unknown /.' })
+  expect(checkReplyText('# Plan', LISTED)).toEqual({ ok: true, text: '# Plan' })
   expect(['login', 'Permissions', 'hooks', 'mcp', 'memory'].map(isCommandAllowed)).toEqual([false, false, false, false, false])
   expect(['compact', 'remote-control', 'review'].map(isCommandAllowed)).toEqual([true, true, true])
 })

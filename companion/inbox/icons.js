@@ -27,6 +27,7 @@ const ICONS = {
   info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.2"/>',
   chevron: '<path d="m6 4 4 4-4 4"/>',
   down: '<path d="m4 6 4 4 4-4"/>',
+  up: '<path d="m4 10 4-4 4 4"/>',
   open: '<path d="M9 3h4v4M13 3 7.5 8.5"/><path d="M11.5 9.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1h2.5"/>',
   plus: '<path d="M8 3.5v9M3.5 8h9"/>',
   minus: '<path d="M3.5 8h9"/>',
@@ -43,6 +44,7 @@ const ICONS = {
   snooze: '<circle cx="8" cy="8.5" r="5"/><path d="M8 6v2.5l1.6 1.2M3 3.5l1.6-1.2M13 3.5l-1.6-1.2"/>',
   stop: '<rect x="4.5" y="4.5" width="7" height="7" rx="1.2" fill="currentColor"/>',
   send: '<path d="M2.5 8 13.5 3 10 13.5 7.5 9z"/><path d="M7.5 9 13.5 3"/>',
+  skill: '<path d="m3 13 7-7"/><path d="M11.5 2.5v2M10.5 3.5h2M13 6.5v1.5M12.25 7.25h1.5M7 2.5v1M6.5 3h1"/>',
   reply: '<path d="M6.5 4 3 7.5 6.5 11"/><path d="M3 7.5h6.5a3.5 3.5 0 0 1 3.5 3.5v1"/>',
   edit: '<path d="M10.5 3.5l2 2L6 12H4v-2z"/>',
   reset: '<path d="M3.5 8a4.5 4.5 0 1 0 1.3-3.2"/><path d="M3.5 3v2.5H6"/>',
@@ -56,6 +58,23 @@ const ICONS = {
   search: '<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>',
   hub: '<path d="M8 2.2 13 5.1v5.8L8 13.8 3 10.9V5.1z"/>',
   diamond: '<path d="M8 3.2 12.8 8 8 12.8 3.2 8z"/>',
+  bulb: '<path d="M6 11.5c0-1.7-2.5-2.6-2.5-5.2a4.5 4.5 0 0 1 9 0c0 2.6-2.5 3.5-2.5 5.2zM6.5 13.8h3"/>',
+  rocket: '<path d="M13.5 2.5c-3.5 0-6 2-7.5 5.5l2 2c3.5-1.5 5.5-4 5.5-7.5z"/><circle cx="10.3" cy="5.7" r="1.1"/><path d="M6 8H3.5l1.8-2.3h2.2M8 10v2.5l2.3-1.8V8.5M4.5 11.5l-2 2"/>',
+  bug: '<rect x="5" y="5" width="6" height="8.5" rx="3"/><path d="M6 5.2a2 2 0 0 1 4 0M8 7.5v5.5M2.5 9H5M11 9h2.5M3 5.5l2 1M13 5.5l-2 1M3 13l2-1.2M13 13l-2-1.2"/>',
+  shield: '<path d="M8 2 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/>',
+  book: '<path d="M8 4.5C6.5 3.3 4.5 3 2.5 3v9.5c2 0 4 .3 5.5 1.5 1.5-1.2 3.5-1.5 5.5-1.5V3c-2 0-4 .3-5.5 1.5zM8 4.5V14"/>',
+  beaker: '<path d="M6 2.5v4L2.8 12.3a.8.8 0 0 0 .7 1.2h9a.8.8 0 0 0 .7-1.2L10 6.5v-4M5 2.5h6M4.4 10h7.2"/>',
+  sparkle: '<path d="M8 2c.5 3 1.5 4.5 5 6-3.5 1.5-4.5 3-5 6-.5-3-1.5-4.5-5-6 3.5-1.5 4.5-3 5-6z"/>',
+  terminal: '<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="m4.8 6.2 2 1.8-2 1.8M8.5 10.2h2.7"/>',
+  code: '<path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5M9 3l-2 10"/>',
+  gear: '<circle cx="8" cy="8" r="2"/><circle cx="8" cy="8" r="4.3"/><path d="M8 1.8v1.9M8 12.3v1.9M1.8 8h1.9M12.3 8h1.9M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/>',
+  wrench: '<path d="M10.5 2.5a3 3 0 0 0-2.8 4l-4.9 4.9a1.3 1.3 0 0 0 1.8 1.8l4.9-4.9a3 3 0 0 0 4-2.8l-1.8 1.8-1.8-.5-.5-1.8z"/>',
+  note: '<path d="M4 2.5h5.5l3 3V13a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5z"/><path d="M9.5 2.5v3h3M5.8 8.5h4.4M5.8 11h3"/>',
+  star: '<path d="m8 2.3 1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 11.1 4.5 13l.8-3.9-2.9-2.7 3.9-.5z"/>',
+  heart: '<path d="M8 13.2S2.5 10 2.5 6.2A2.7 2.7 0 0 1 8 4.8a2.7 2.7 0 0 1 5.5 1.4C13.5 10 8 13.2 8 13.2z"/>',
+  lock: '<rect x="3.5" y="7" width="9" height="6.5" rx="1.2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2M8 9.7V11"/>',
+  database: '<ellipse cx="8" cy="4" rx="4.5" ry="1.8"/><path d="M3.5 4v8c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8V4M3.5 8c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8"/>',
+  chart: '<path d="M2.5 13.5h11M4.5 11V8M8 11V4.5M11.5 11V6.5"/>',
 }
 
 /** The icon names a section or group heading uses; each is a key of the icon set. */
@@ -74,6 +93,15 @@ export function icon(name, variant = null) {
   span.setAttribute('aria-hidden', 'true')
   span.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] ?? ''}</svg>`
   return span
+}
+
+/**
+ * A shelf skill's icon: its chosen one (the wand when unset) in its chosen colour (grey when unset).
+ * @param {{ icon?: string, color?: string }} item
+ * @returns {HTMLSpanElement}
+ */
+export function skillIcon(item) {
+  return icon(item.icon && ICONS[item.icon] ? item.icon : 'skill', item.color ? `sk c-${item.color}` : 'sk')
 }
 
 /**

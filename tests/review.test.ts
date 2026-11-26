@@ -76,7 +76,7 @@ test('only plain GitHub pull request links reach gh, as an argv array; rows and 
   for (const bad of ['http://github.com/a/b/pull/1', 'https://github.com/a/b/pull/1?x=1', 'https://github.com/a/b/pull/1#c', 'https://user@github.com/a/b/pull/1', 'https://github.com.evil/a/b/pull/1', 'https://github.com/a/b/pull/1/files', 'https://github.com/a/b/pull/x', 'https://github.com/a b/c/pull/1', '--help', 42, null]) {
     expect(isPrUrl(bad)).toBe(false)
   }
-  expect(prViewArgs('https://github.com/a/b/pull/1')).toEqual(['pr', 'view', 'https://github.com/a/b/pull/1', '--json', 'number,state,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus'])
+  expect(prViewArgs('https://github.com/a/b/pull/1')).toEqual(['pr', 'view', 'https://github.com/a/b/pull/1', '--json', 'number,title,state,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus'])
   expect([prNumber('#18 open'), prNumber('#18')]).toEqual(['#18', '#18'])
 })
 
@@ -85,7 +85,7 @@ const ctx = (context: string, state: string, at = '') => ({ __typename: 'StatusC
 
 test('the rollup summary: CheckRuns and StatusContexts mixed, empty, draft, merged and closed', () => {
   const mixed = prSummary({ state: 'OPEN', isDraft: false, reviewDecision: 'APPROVED', statusCheckRollup: [run('build', 'COMPLETED', 'FAILURE'), run('test', 'COMPLETED', 'TIMED_OUT'), ctx('ci/lint', 'ERROR'), run('docs', 'IN_PROGRESS'), ctx('deploy', 'SUCCESS'), run('build', 'COMPLETED', 'CANCELLED')] }, NOW)
-  expect(mixed).toEqual({ state: 'open', checks: 'failing', failing: ['test', 'ci/lint', 'build'], review: 'approved', checkedAt: NOW })
+  expect(mixed).toEqual({ state: 'open', title: null, checks: 'failing', failing: ['test', 'ci/lint', 'build'], review: 'approved', checkedAt: NOW })
   expect(prSummary({ state: 'OPEN', statusCheckRollup: [run('a', 'QUEUED'), ctx('b', 'SUCCESS'), ctx('c', 'EXPECTED')] }, NOW)?.checks).toBe('pending')
   expect(prSummary({ state: 'OPEN', statusCheckRollup: [run('a', 'COMPLETED', 'SUCCESS'), run('b', 'COMPLETED', 'SKIPPED'), run('c', 'COMPLETED', 'NEUTRAL')] }, NOW)?.checks).toBe('passing')
   expect(prSummary({ state: 'OPEN', statusCheckRollup: [run('a', 'COMPLETED', 'ACTION_REQUIRED'), run('b', 'COMPLETED', 'STARTUP_FAILURE')] }, NOW)?.failing).toEqual(['a', 'b'])
@@ -95,6 +95,13 @@ test('the rollup summary: CheckRuns and StatusContexts mixed, empty, draft, merg
   expect(prSummary({ state: 'CLOSED', reviewDecision: 'CHANGES_REQUESTED' }, NOW)?.review).toBe('changes')
   expect(prSummary({ state: 'OPEN', statusCheckRollup: Array.from({ length: 9 }, (_, i) => run(`c${i}`, 'COMPLETED', 'FAILURE')) }, NOW)?.failing.length).toBe(5)
   expect(prSummary(null, NOW)).toBeNull()
+})
+
+test('the PR title: one line, control and direction-override characters dropped, at most 200 characters', () => {
+  expect(prSummary({ state: 'OPEN', title: '  Add\n a\u202e PR\tfield ' }, NOW)?.title).toBe('Add a PR field')
+  expect(prSummary({ state: 'OPEN', title: 'x'.repeat(300) }, NOW)?.title).toHaveLength(200)
+  expect(prSummary({ state: 'OPEN', title: ' \u200b ' }, NOW)?.title).toBeNull()
+  expect(prSummary({ state: 'OPEN', title: 42 }, NOW)?.title).toBeNull()
 })
 
 test('re-runs: a passed re-run hides the failure before it, whatever the order gh lists them; a newer failure wins', () => {

@@ -387,16 +387,16 @@
   height: 35px;
 }
 
-.cx-panel:not(:has(#approval-input, #question-card)) .send-row:has(textarea:not(:placeholder-shown)) .icon-btn:not([aria-disabled='true']) {
+.cx-panel:not(:has(#approval-input, #question-card)) .send-row:has(textarea:not(:placeholder-shown)) .icon-btn:not(.cx-skill, [aria-disabled='true']) {
   background: var(--accent);
   border-color: var(--accent);
 }
 
-.cx-panel:not(:has(#approval-input, #question-card)) .send-row:has(textarea:not(:placeholder-shown)) .icon-btn:not([aria-disabled='true']) .icon {
+.cx-panel:not(:has(#approval-input, #question-card)) .send-row:has(textarea:not(:placeholder-shown)) .icon-btn:not(.cx-skill, [aria-disabled='true']) .icon {
   color: var(--on-accent);
 }
 
-.cx-panel:not(:has(#approval-input, #question-card)) .send-row:has(textarea:not(:placeholder-shown)) .icon-btn:not([aria-disabled='true']):hover {
+.cx-panel:not(:has(#approval-input, #question-card)) .send-row:has(textarea:not(:placeholder-shown)) .icon-btn:not(.cx-skill, [aria-disabled='true']):hover {
   background: var(--lab);
   border-color: var(--lab);
 }
@@ -418,7 +418,7 @@
 }
 
 .composer .err {
-  margin: 4px 0 0;
+  margin: 0 0 4px;
   font-size: var(--fs-body);
 }
 

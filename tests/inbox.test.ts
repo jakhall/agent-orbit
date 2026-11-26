@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { MAX_MESSAGE_CHARS } from '../shared/constants.js'
+import { MAX_MESSAGE_CHARS, MOD_VERSION } from '../shared/constants.js'
 import { checkReplyText, cleanInboxStats, countInbox, deliveryAck, inboxSummary, isDelivered, isPlainId, judgeReply, knownReason, refusalAck, rememberId, REPLY_TTL_MS, withdrawVerdict } from '../shared/inbox.js'
 import { readOnlyText, REPLY_OLDER_TEXT, replyDeadline, sendAfterAck, sendBlock, sendMode, sendUpdate, withdrawOutcome, type Send } from '../shared/popout.js'
 import { cleanRecord } from '../shared/aggregate/redact.js'
@@ -25,7 +25,7 @@ test('reply text: cleaned of invisible edges, refused when empty or too long', (
   expect([checkReplyText('use a/b paths').ok, checkReplyText('issue #12 is fixed').ok, checkReplyText('yes!').ok, checkReplyText('🙂 thanks').ok]).toEqual([true, true, true, true])
 })
 
-test('reply text: slash, shell and memory commands are refused, also behind invisible characters or look-alikes', () => {
+test('reply text: slash and shell commands are refused, also behind invisible characters or look-alikes; a leading # is sent', () => {
   const commands = [
     '/clear',
     '  /clear',
@@ -39,12 +39,10 @@ test('reply text: slash, shell and memory commands are refused, also behind invi
     '!echo hi',
     '！echo hi',
     '﹗echo hi',
-    '#remember this',
-    '＃remember this',
-    '﹟remember this',
-    '　#x',
+    '　!x',
   ]
   for (const text of commands) expect([text, reasonOf(text)]).toEqual([text, 'command'])
+  for (const text of ['#482 please review', '# Plan', '＃tag', '　#x']) expect([text, checkReplyText(text).ok]).toEqual([text, true])
 })
 
 test('a request for a sub-agent is delivered to it straight away, never held, never a command; a bad agentId is refused', () => {
@@ -146,6 +144,8 @@ test('replies are the one route: as you to sessions on reply protocol 2; no mess
   expect(sendAfterAck('local_a', { status: 'refused', reason: 'stale' }, 'hi')).toEqual({ key: 'local_a', draft: 'hi', status: 'failed', message: 'Not sent: it expired after a minute.' })
   expect(sendAfterAck('local_a', { status: 'refused', reason: 'replay' }, 'hi').message).toBe('Not sent: it was already handled.')
   expect(sendAfterAck('local_a', { status: 'failed', reason: 'bogus' as never }, 'hi').message).toBe('Not sent: the session didn’t accept it.')
+  expect(sendAfterAck('local_a', { status: 'refused', reason: 'command' }, '# note', '2.4.2').message).toBe('Not sent: this session runs Orbit 2.4.2, which refuses it. A session started now takes it.')
+  expect(sendAfterAck('local_a', { status: 'refused', reason: 'command' }, '!ls', MOD_VERSION).message).toBe('Not sent: it started with / or ! and was not a command Orbit may run.')
   expect(replyDeadline(NOW)).toBe(NOW + REPLY_TTL_MS + 10_000)
 })
 
